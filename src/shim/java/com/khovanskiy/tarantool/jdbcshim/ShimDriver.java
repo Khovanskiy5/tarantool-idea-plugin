@@ -24,6 +24,11 @@ import java.util.logging.Logger;
  * каждая операция применяется сервером сразу, commit не делает ничего,
  * а rollback честно сообщает, что откат невозможен.
  *
+ * Заодно обёртка чинит метаданные колонок: родной getColumns() отдаёт
+ * DATA_TYPE = Types.OTHER для любого типа, из-за чего редактор данных
+ * квотирует числа строками и сервер отвергает запрос — см.
+ * {@link ColumnTypeMapping}.
+ *
  * Подключение: Database → Data Sources → Drivers → Tarantool →
  * Driver Files: добавить jar этой обёртки; Class:
  * com.khovanskiy.tarantool.jdbcshim.ShimDriver.
@@ -174,6 +179,8 @@ public final class ShimDriver implements Driver {
                     shimWarning = null;
                     real.clearWarnings();
                     return null;
+                case "getMetaData":
+                    return ColumnTypeMapping.wrap(real.getMetaData(), (Connection) proxy);
                 default:
                     try {
                         return method.invoke(real, args);
