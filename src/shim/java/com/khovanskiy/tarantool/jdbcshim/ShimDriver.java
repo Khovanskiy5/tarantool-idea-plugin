@@ -39,6 +39,29 @@ public final class ShimDriver implements Driver {
             // регистрация делегата уже прошла или недоступна — не критично:
             // IDE загружает класс драйвера напрямую, минуя DriverManager
         }
+        deregisterRawDelegate();
+    }
+
+    /**
+     * Статический инициализатор SQLDriver саморегистрирует его при загрузке
+     * класса — это происходит в конструкторе обёртки, то есть раньше её
+     * собственной регистрации. DriverManager отдаёт первый подошедший
+     * драйвер, и сырой SQLDriver перехватывал бы jdbc:tarantool:// мимо
+     * эмуляции автокоммита — убираем его из реестра, остаётся обёртка.
+     */
+    private static void deregisterRawDelegate() {
+        java.util.Enumeration<Driver> drivers = DriverManager.getDrivers();
+        while (drivers.hasMoreElements()) {
+            Driver driver = drivers.nextElement();
+            if (driver instanceof org.tarantool.jdbc.SQLDriver) {
+                try {
+                    DriverManager.deregisterDriver(driver);
+                } catch (SQLException ignored) {
+                    // не удалось — DriverManager лишь оставит лишний драйвер,
+                    // прямые подключения через ShimDriver это не ломает
+                }
+            }
+        }
     }
 
     public ShimDriver() throws SQLException {
@@ -108,6 +131,19 @@ public final class ShimDriver implements Driver {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            if (method.getDeclaringClass() == Object.class) {
+                // Прокси сравнивается по идентичности: делегирование equals
+                // в real ломает рефлексивность (real.equals(proxy) == false),
+                // и коллекции пулов перестают находить соединение.
+                switch (method.getName()) {
+                    case "equals":
+                        return proxy == args[0];
+                    case "hashCode":
+                        return System.identityHashCode(proxy);
+                    default:
+                        return "ShimConnection[" + real + "]";
+                }
+            }
             switch (method.getName()) {
                 case "setAutoCommit":
                     // Сервер всегда в автокоммите; запоминаем только флаг.

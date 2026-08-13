@@ -24,9 +24,11 @@ import java.io.File
  * Автонастройка Database-интеграции для tt-проекта.
  *
  * При открытии проекта с tt.yaml:
- *  1) регистрирует пользовательский драйвер «Tarantool (shim)» — встроенный
- *     артефакт коннектора плюс поставляемый плагином шим, который эмулирует
- *     автокоммит (без него сохранение из редактора данных падает);
+ *  1) регистрирует пользовательский драйвер «Tarantool (shim)» — единственный
+ *     jar шима, поставляемый плагином: внутрь шейднут коннектор с форком
+ *     MsgPackLite (поддержка ext-типов: datetime, uuid, decimal, interval),
+ *     а сам шим эмулирует автокоммит (без него сохранение из редактора
+ *     данных падает);
  *  2) создаёт источник данных из config.yaml (адрес, порт, учётные данные),
  *     если ни одного Tarantool-источника в проекте ещё нет.
  *
@@ -37,6 +39,18 @@ class TarantoolDataSourceStartup : ProjectActivity {
     override suspend fun execute(project: Project) {
         val basePath = project.basePath ?: return
         if (!File(basePath, "tt.yaml").isFile) {
+            // Реестр драйверов общий для всей IDE, а починка конфигурации
+            // (вычистка артефакта коннектора, актуальный jar шима) до сих пор
+            // выполнялась только в tt-проектах: пользователь с источником,
+            // созданным вручную в обычном проекте, ждал бы починки до первого
+            // открытия какого-нибудь tt-проекта. Уже существующий шим-драйвер
+            // чиним из любого проекта; новый не регистрируем.
+            withContext(Dispatchers.EDT) {
+                val manager = DatabaseDriverManager.getInstance()
+                if (manager.drivers.any { it.driverClass == SHIM_DRIVER_CLASS }) {
+                    ensureShimDriver()
+                }
+            }
             return
         }
 
@@ -82,10 +96,12 @@ class TarantoolDataSourceStartup : ProjectActivity {
             setName("Tarantool (shim)")
             setDriverClass(SHIM_DRIVER_CLASS)
             setSqlDialect("GenericSQL")
-            if (artifacts.isEmpty() && builtin != null) {
-                // Артефакт коннектора наследуется от встроенного драйвера —
-                // IDE сама скачает org.tarantool:connector.
-                setArtifacts(builtin.artifacts)
+            if (artifacts.isNotEmpty()) {
+                // Коннектор шейдится в jar шима вместе с форком MsgPackLite
+                // (поддержка ext-типов); артефакт с Maven Central в classpath
+                // перекрывал бы форк оригинальным классом — вычищаем, в том
+                // числе унаследованный конфигурациями прошлых версий.
+                setArtifacts(emptyList())
             }
             setAdditionalClasspathElements(shimClasspath)
             // Новые источники этого драйвера сразу в автокоммите.

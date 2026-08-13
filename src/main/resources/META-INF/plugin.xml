@@ -47,6 +47,18 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.2.0</b>
+    <ul>
+      <li>JDBC driver: native support for Tarantool MessagePack extension
+          types — datetime, uuid, decimal and interval values are decoded
+          in result sets and encoded as query parameters. Previously any
+          such value killed the connection with "Input contains invalid
+          type value -40". Unknown extensions are shown as raw bytes.</li>
+      <li>The driver jar is now self-contained: the connector is shaded in
+          together with the patched MessagePack codec, no separate Maven
+          artifact is required. Existing driver configurations are repaired
+          automatically on project open.</li>
+    </ul>
     <b>1.1.0</b>
     <ul>
       <li>Emmy debugger setup action (Tools → Настроить Emmy-отладчик Tarantool):

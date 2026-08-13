@@ -5,14 +5,20 @@ plugins {
 }
 
 group = "com.khovanskiy"
-version = "1.1.0"
+version = "1.2.0"
 
-// Шим JDBC-драйвера: отдельный jar в дистрибутиве, который пользователь
-// добавляет в Driver Files источника данных. Компилируется против
-// драйвера Tarantool с Maven Central, в jar кладутся только наши классы.
+// Шим JDBC-драйвера: единственный jar в дистрибутиве, который подключается
+// в Driver Files источника данных. Коннектор Tarantool шейдится внутрь,
+// а его MsgPackLite замещается нашим форком с поддержкой ext-типов
+// (datetime, uuid, decimal, interval) — оригинал валил соединение на
+// первом же таком значении. Отдельный артефакт коннектора с Maven Central
+// в classpath драйвера больше не нужен и вреден: он перекрывал бы форк.
 sourceSets {
     create("shim")
 }
+
+// Зависимости, которые распаковываются внутрь jar шима.
+val shimShade: Configuration by configurations.creating
 
 repositories {
     mavenCentral()
@@ -50,6 +56,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     "shimCompileOnly"("org.tarantool:connector:1.9.4")
+    shimShade("org.tarantool:connector:1.9.4")
 }
 
 val shimJar = tasks.register<Jar>("shimJar") {
@@ -58,9 +65,28 @@ val shimJar = tasks.register<Jar>("shimJar") {
     // IDE, и версионное имя протухало бы при каждом обновлении плагина.
     archiveVersion = ""
     from(sourceSets["shim"].output)
+    from(provider { shimShade.map { zipTree(it) } }) {
+        // Оригинальные MsgPackLite и SQLMsgPackLite замещаются форками
+        // из sourceSets["shim"]
+        exclude("org/tarantool/MsgPackLite.class")
+        exclude("org/tarantool/MsgPackLite$*.class")
+        exclude("org/tarantool/jdbc/SQLMsgPackLite.class")
+        exclude("org/tarantool/jdbc/SQLMsgPackLite$*.class")
+        exclude("META-INF/MANIFEST.MF")
+        // Services-файл коннектора регистрировал бы в DriverManager сырой
+        // SQLDriver мимо обёртки; ресурсы шима кладут свой файл с ShimDriver
+        exclude("META-INF/services/java.sql.Driver")
+    }
     // Сборка плагина дописывает дескриптор во все Jar-таски —
     // драйверному jar он не нужен.
     exclude("META-INF/plugin.xml")
+}
+
+// Тесты MsgPackLite гоняются против собранного jar шима — того же
+// артефакта, что едет пользователю; заодно проверяется, что шейдинг
+// действительно заменил оригинальный MsgPackLite форком.
+dependencies {
+    testImplementation(files(shimJar))
 }
 
 // Jar шима кладётся в отдельный каталог driver/ дистрибутива: в lib/

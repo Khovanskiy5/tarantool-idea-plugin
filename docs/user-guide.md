@@ -217,8 +217,11 @@ Service типа NodePort/LoadBalancer; после этого источник �
 В IntelliJ IDEA Ultimate плагин настраивает работу с данными сам.
 При открытии tt-проекта с `config.yaml` он:
 
-* регистрирует драйвер **Tarantool (shim)** — поставляемую с плагином
-  обёртку над `org.tarantool:connector`, эмулирующую автокоммит.
+* регистрирует драйвер **Tarantool (shim)** — поставляемый с плагином
+  самодостаточный jar: внутрь шейднут `org.tarantool:connector`,
+  его `MsgPackLite` заменён форком с поддержкой ext-типов Tarantool
+  (`datetime`, `uuid`, `decimal`, `interval` — оригинал на таких
+  значениях ронял соединение), а обёртка поверх эмулирует автокоммит.
   Без неё сохранение из редактора данных падает с `SQLException`
   в `setAutoCommit`: редактор оборачивает сабмит транзакцией даже
   в режиме Tx: Auto, а интерактивные транзакции Tarantool требуют
@@ -264,7 +267,10 @@ SQL-консоль, экспорт — вся стандартная функц�
 2. Database → ⚙ → **Data Sources…** → раздел **Drivers** → Tarantool →
    Driver Files → **+** → выбрать
    `~/Library/Application Support/JetBrains/IntelliJIdea<версия>/plugins/tarantool-idea-plugin/driver/tarantool-jdbc-shim.jar`.
-3. В поле **Class** выбрать
+3. Там же удалить артефакт `org.tarantool:connector`, если он скачан:
+   коннектор уже внутри jar шима, а отдельный артефакт перекрыл бы
+   исправленный `MsgPackLite` оригиналом без поддержки ext-типов.
+4. В поле **Class** выбрать
    `com.khovanskiy.tarantool.jdbcshim.ShimDriver`.
 
 Что нужно знать о данных Tarantool в SQL:
@@ -274,7 +280,13 @@ SQL-консоль, экспорт — вся стандартная функц�
   в кавычках: `SELECT * FROM "users"`;
 * таблицы, созданные через SQL `CREATE TABLE`, кавычек не требуют;
 * проверено с Tarantool 3.8 и драйвером connector 1.9.4: соединение,
-  метаданные, первичные ключи, SELECT/INSERT/UPDATE, кириллица.
+  метаданные, первичные ключи, SELECT/INSERT/UPDATE, кириллица,
+  ext-типы `datetime`/`uuid`/`decimal`/`interval` в чтении и записи
+  (в SQL-запросах и как параметры `PreparedStatement`);
+* параметры `Date`/`Time`/`Timestamp`/`BigDecimal` кодируются родными
+  ext-типами и требуют Tarantool ≥ 2.10 (раньше драйвер отправлял их
+  как миллисекунды и строку — для серверов старше это было единственным
+  вариантом).
 
 ### SQL-диалект Tarantool
 
