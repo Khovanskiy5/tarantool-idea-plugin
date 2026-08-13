@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <!--
+    Подключение отладчика EmmyLua к работающему процессу Tarantool.
+
+    TYPE="0" — режим «Tcp ( IDE connect debugger )»: слушает процесс, а IDE
+    подключается к нему. Обратный режим (TYPE="1") использовать нельзя:
+    emmy_core.tcpConnect роняет Tarantool с LuajitError.
+
+    Запускать только через кнопку Debug, после старта инстанса
+    с TARANTOOL_DEBUG=1 (или TARANTOOL_DEBUG=<имя инстанса> в кластере).
+  -->
+  <configuration default="false" name="Tarantool: attach debugger" type="lua.emmy.debugger" factoryName="Emmy Debugger(NEW)" folderName="Tarantool" TYPE="0" HOST="127.0.0.1" PORT="9966">
+    <method v="2" />
+  </configuration>
+</component>

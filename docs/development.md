@@ -92,6 +92,8 @@ src/main/kotlin/com/khovanskiy/tarantool/
 │   └── TtScaffolder.kt                    общий запуск tt init/tt create
 ├── templates/
 │   └── TarantoolLuaTemplateContext.kt     контекст live-шаблонов (.lua)
+├── debugger/
+│   └── SetupEmmyDebuggerAction.kt         раскладка emmy_debug.lua и конфигурации attach
 ├── settings/
 │   ├── TarantoolSettings.kt               PersistentStateComponent (пути)
 │   ├── TarantoolSettingsConfigurable.kt   страница Settings → Tools → Tarantool
@@ -107,6 +109,7 @@ src/main/resources/
 ├── schemas/tt-config.json         схема tt.yaml (по исходникам tt)
 ├── liveTemplates/Tarantool.xml    live-шаблоны
 ├── stubs/gen_stubs.lua            генератор типов (запускается tarantool'ом)
+├── debug/                         emmy_debug.lua и конфигурация attach debugger
 └── messages/TarantoolBundle.properties
 ```
 

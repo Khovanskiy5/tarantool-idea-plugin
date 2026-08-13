@@ -47,6 +47,15 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.1.0</b>
+    <ul>
+      <li>Emmy debugger setup action (Tools → Настроить Emmy-отладчик Tarantool):
+          drops the emmy_debug.lua helper next to config.yaml and creates the
+          "Tarantool: attach debugger" run configuration. The helper locates
+          emmy_core inside the installed IDE, activates on TARANTOOL_DEBUG=1
+          or TARANTOOL_DEBUG=&lt;instance name&gt; (clusters: only the named
+          instance opens the debugger port).</li>
+    </ul>
     <b>1.0.0</b> — first public release.
     <ul>
       <li>Run configurations: Tarantool (Lua scripts), tt CLI, luatest with a test tree.</li>
@@ -98,6 +107,11 @@
     <group id="Tarantool.InstancesExtraActions" />
     <action id="Tarantool.GenerateStubs"
             class="com.khovanskiy.tarantool.stubs.GenerateTarantoolStubsAction"
+            icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
+      <add-to-group group-id="ToolsMenu" anchor="last" />
+    </action>
+    <action id="Tarantool.SetupEmmyDebugger"
+            class="com.khovanskiy.tarantool.debugger.SetupEmmyDebuggerAction"
             icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
       <add-to-group group-id="ToolsMenu" anchor="last" />
     </action>
