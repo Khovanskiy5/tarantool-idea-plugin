@@ -47,6 +47,21 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.3.0</b>
+    <ul>
+      <li>JDBC driver: honest column types in DatabaseMetaData.getColumns.
+          The bundled connector reported DATA_TYPE = OTHER for every column,
+          so the data editor treated unsigned/number columns as strings and
+          quoted filter values ("Type mismatch: can not convert string('2')
+          to unsigned"). The shim now maps space format types to the same
+          vocabulary Tarantool SQL uses in result sets: unsigned/integer →
+          BIGINT/integer, number/double → DOUBLE/double, decimal, boolean,
+          varbinary, datetime → TIMESTAMP.</li>
+      <li>EmmyLua stubs: hand-written type files renamed to *_objects.lua —
+          manual/fiber.lua shadowed require('fiber') and killed completion.
+          Legacy names in existing projects are renamed automatically (on
+          project open and before generation), user edits are preserved.</li>
+    </ul>
     <b>1.2.0</b>
     <ul>
       <li>JDBC driver: native support for Tarantool MessagePack extension
