@@ -17,6 +17,11 @@ import java.io.File
  * При открытии tt-проекта без каталога типов предлагает сгенерировать
  * описания API Tarantool: одно уведомление с кнопкой, никакой магии
  * без спроса — генерация запускает внешний интерпретатор.
+ *
+ * Исключение из «никакой магии» — миграция легаси-имён ручных типов:
+ * это дешёвое переименование без внешних процессов, а страдают от старых
+ * имён ровно проекты, где каталог типов уже есть и уведомление с кнопкой
+ * генерации не показывается.
  */
 class TarantoolTypesStartup : ProjectActivity {
 
@@ -24,6 +29,10 @@ class TarantoolTypesStartup : ProjectActivity {
         val basePath = project.basePath ?: return
         if (!File(basePath, "tt.yaml").isFile) {
             return
+        }
+        val manualDir = File(basePath, ".types/tarantool/manual")
+        if (manualDir.isDirectory) {
+            ManualTypesMigration.notifyLeftovers(project, ManualTypesMigration.migrate(manualDir))
         }
         if (File(basePath, ".types/tarantool").isDirectory) {
             return

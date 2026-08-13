@@ -46,6 +46,13 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
     }
 
     private fun generate(project: Project, basePath: String, indicator: ProgressIndicator) {
+        // Ручные типы (сигнатуры спейсов, файберов, net.box) раскладываются
+        // до запуска генератора: он исключает перекрытые вручную функции.
+        // Существующие файлы не перезаписываются — их мог править пользователь.
+        // Делается до проверки интерпретатора: миграции легаси-имён он не нужен.
+        val leftovers = extractManualTypes(basePath)
+        ManualTypesMigration.notifyLeftovers(project, leftovers)
+
         // resolve возвращает абсолютный путь, когда интерпретатор найден;
         // голое имя означает, что ни PATH, ни типовые каталоги не помогли.
         val interpreter = TarantoolInterpreter.resolve(null)
@@ -53,11 +60,6 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
             notify(project, TarantoolBundle.message("notification.stubs.no.interpreter"), NotificationType.ERROR)
             return
         }
-
-        // Ручные типы (сигнатуры спейсов, файберов, net.box) раскладываются
-        // до запуска генератора: он исключает перекрытые вручную функции.
-        // Существующие файлы не перезаписываются — их мог править пользователь.
-        extractManualTypes(basePath)
 
         // Скрипт извлекается из ресурсов во временный файл: интерпретатору
         // нужен путь на диске.
@@ -112,18 +114,26 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
      * снять не может. Пользовательские правки сохраняются: существующие
      * файлы не перезаписываются.
      */
-    private fun extractManualTypes(basePath: String) {
+    /**
+     * Возвращает легаси-файлы, которые миграции переименовать не удалось.
+     * Их новые имена пропускаются при извлечении ресурсов: чистая копия
+     * рядом с легаси-файлом навсегда заблокировала бы повторную миграцию.
+     */
+    private fun extractManualTypes(basePath: String): List<String> {
         val manualDir = File(basePath, ".types/tarantool/manual")
         manualDir.mkdirs()
-        for (name in MANUAL_TYPE_FILES) {
+        val leftovers = ManualTypesMigration.migrate(manualDir)
+        val blocked = leftovers.mapNotNull { ManualTypesMigration.targetFor(it) }.toSet()
+        for (name in ManualTypesMigration.MANUAL_TYPE_FILES) {
             val target = File(manualDir, name)
-            if (target.exists()) {
+            if (name in blocked || target.exists()) {
                 continue
             }
             javaClass.getResourceAsStream("/stubs/manual/$name")?.use { input ->
                 target.outputStream().use { input.copyTo(it) }
             }
         }
+        return leftovers
     }
 
     /**
@@ -178,6 +188,5 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
     private companion object {
         const val STUB_GENERATOR_RESOURCE = "/stubs/gen_stubs.lua"
         const val TIMEOUT_MS = 180_000
-        val MANUAL_TYPE_FILES = listOf("box.lua", "fiber.lua", "net_box.lua")
     }
 }
