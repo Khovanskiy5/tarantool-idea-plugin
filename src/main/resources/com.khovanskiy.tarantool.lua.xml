@@ -1,0 +1,13 @@
+<!--
+  Content-модуль Plugin Model v2: интеграция с языком Lua плагина EmmyLua2.
+  Грузится только когда EmmyLua2 установлен.
+-->
+<idea-plugin package="com.khovanskiy.tarantool.lua">
+  <dependencies>
+    <plugin id="com.cppcxy.Intellij-EmmyLua" />
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <runLineMarkerContributor language="Lua" implementationClass="com.khovanskiy.tarantool.lua.TarantoolLuaRunLineMarkerContributor" />
+  </extensions>
+</idea-plugin>

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tt environment configuration",
+  "description": "Конфигурация окружения tt (Tarantool CLI). Составлена по структуре CliOpts из исходников tt 2.14 (cli/config/config.go).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "env": {
+      "type": ["object", "null"],
+      "description": "Окружение tt: всё, что влияет на сборку и запуск приложений.",
+      "additionalProperties": false,
+      "properties": {
+        "bin_dir": {
+          "type": "string",
+          "description": "Каталог с бинарными файлами (tarantool, tt), установленными через tt install."
+        },
+        "inc_dir": {
+          "type": "string",
+          "description": "Каталог с заголовочными файлами Tarantool."
+        },
+        "instances_enabled": {
+          "type": "string",
+          "description": "Каталог включённых приложений: файлы или символические ссылки на приложения. Значение '.' — приложение в корне окружения."
+        },
+        "restart_on_failure": {
+          "type": "boolean",
+          "description": "Перезапускать инстанс при падении (запуск под watchdog).",
+          "default": false
+        },
+        "tarantoolctl_layout": {
+          "type": "boolean",
+          "description": "Раскладка артефактов, совместимая с tarantoolctl: без подкаталогов приложений для сокетов, pid-файлов и логов.",
+          "default": false
+        },
+        "output_history_max": {
+          "type": "integer",
+          "description": "Максимум команд в выводе \\history в консоли tt connect.",
+          "default": 10
+        }
+      }
+    },
+    "modules": {
+      "type": ["object", "null"],
+      "description": "Внешние модули tt.",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "description": "Каталог или список каталогов с внешними модулями tt.",
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      }
+    },
+    "app": {
+      "type": ["object", "null"],
+      "description": "Каталоги артефактов запущенных приложений.",
+      "additionalProperties": false,
+      "properties": {
+        "run_dir": {
+          "type": "string",
+          "description": "Каталог рантайм-артефактов инстанса: консольный сокет, PID-файл."
+        },
+        "log_dir": {
+          "type": "string",
+          "description": "Каталог файлов журнала."
+        },
+        "wal_dir": {
+          "type": "string",
+          "description": "Каталог журналов упреждающей записи (.xlog)."
+        },
+        "memtx_dir": {
+          "type": "string",
+          "description": "Каталог снимков memtx (.snap)."
+        },
+        "vinyl_dir": {
+          "type": "string",
+          "description": "Каталог файлов vinyl."
+        }
+      }
+    },
+    "repo": {
+      "type": ["object", "null"],
+      "description": "Локальные репозитории файлов.",
+      "additionalProperties": false,
+      "properties": {
+        "rocks": {
+          "type": ["string", "null"],
+          "description": "Каталог с локальными rocks-файлами."
+        },
+        "distfiles": {
+          "type": ["string", "null"],
+          "description": "Каталог с файлами установки."
+        }
+      }
+    },
+    "ee": {
+      "type": ["object", "null"],
+      "description": "Параметры Tarantool Enterprise Edition.",
+      "additionalProperties": false,
+      "properties": {
+        "credential_path": {
+          "type": ["string", "null"],
+          "description": "Путь к файлу с учётными данными для загрузки Tarantool EE."
+        }
+      }
+    },
+    "templates": {
+      "type": ["array", "null"],
+      "description": "Каталоги поиска шаблонов приложений для tt create.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Каталог с шаблонами."
+          }
+        }
+      }
+    }
+  }
+}

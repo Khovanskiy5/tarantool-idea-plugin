@@ -1,0 +1,23 @@
+<!--
+  Content-модуль Plugin Model v2: SQL-диалект Tarantool.
+  Загружается только вместе с Database-инструментами (IDEA Ultimate);
+  классы модуля живут в пакете com.khovanskiy.tarantool.sql.
+-->
+<idea-plugin package="com.khovanskiy.tarantool.sql">
+  <dependencies>
+    <module name="intellij.database.dialects.base" />
+    <module name="intellij.database.dialects.sql92" />
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij.database">
+    <dbms id="TARANTOOL_CUSTOM" instance="com.khovanskiy.tarantool.sql.TarantoolDbms.TARANTOOL" />
+    <dmlHelper dbms="TARANTOOL_CUSTOM" implementationClass="com.khovanskiy.tarantool.sql.TarantoolDmlHelper" />
+  </extensions>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <sql.dialect dbms="TARANTOOL_CUSTOM" implementationClass="com.khovanskiy.tarantool.sql.TarantoolSqlDialect" />
+    <lang.parserDefinition language="TarantoolSQL" implementationClass="com.khovanskiy.tarantool.sql.TarantoolParserDefinition" />
+    <lang.syntaxHighlighterFactory language="TarantoolSQL" implementationClass="com.khovanskiy.tarantool.sql.TarantoolSyntaxHighlighterFactory" />
+    <postStartupActivity implementation="com.khovanskiy.tarantool.sql.TarantoolDataSourceStartup" />
+  </extensions>
+</idea-plugin>

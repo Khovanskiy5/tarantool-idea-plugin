@@ -1,0 +1,66 @@
+<templateSet group="Tarantool">
+  <template name="tspace" toReformat="false" toShortenFQNames="false"
+            description="box.schema.space.create с форматом и индексом"
+            value="local $VAR$ = box.schema.space.create('$NAME$', {&#10;    if_not_exists = true,&#10;    format = {&#10;        { name = 'id', type = 'unsigned' },&#10;        $FIELD$&#10;    },&#10;})&#10;&#10;$VAR$:create_index('primary', {&#10;    if_not_exists = true,&#10;    parts = { { field = 'id', type = 'unsigned' } },&#10;})&#10;$END$">
+    <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true" />
+    <variable name="VAR" expression="" defaultValue="&quot;space&quot;" alwaysStopAt="true" />
+    <variable name="FIELD" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="tonce" toReformat="false" toShortenFQNames="false"
+            description="box.once — код, выполняемый один раз за историю инстанса"
+            value="box.once('$KEY$', function()&#10;    $END$&#10;end)">
+    <variable name="KEY" expression="" defaultValue="&quot;schema:v1&quot;" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="tfiber" toReformat="false" toShortenFQNames="false"
+            description="Создание файбера с ожиданием результата"
+            value="local fiber = require('fiber')&#10;local $VAR$ = fiber.new(function()&#10;    $END$&#10;end)&#10;$VAR$:set_joinable(true)&#10;local ok, result = $VAR$:join()">
+    <variable name="VAR" expression="" defaultValue="&quot;worker&quot;" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="tatomic" toReformat="false" toShortenFQNames="false"
+            description="box.atomic — блок в одной транзакции"
+            value="box.atomic(function()&#10;    $END$&#10;end)">
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="tnetbox" toReformat="false" toShortenFQNames="false"
+            description="Подключение net.box к удалённому инстансу"
+            value="local netbox = require('net.box')&#10;local $VAR$ = netbox.connect('$URI$')&#10;$END$&#10;$VAR$:close()">
+    <variable name="VAR" expression="" defaultValue="&quot;conn&quot;" alwaysStopAt="true" />
+    <variable name="URI" expression="" defaultValue="&quot;127.0.0.1:3301&quot;" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="tlog" toReformat="false" toShortenFQNames="false"
+            description="Именованный журнал модуля log"
+            value="local log = require('log').new('$NAME$')&#10;log.info($END$)">
+    <variable name="NAME" expression="" defaultValue="&quot;app&quot;" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+
+  <template name="twatch" toReformat="false" toShortenFQNames="false"
+            description="Триггер on_replace на спейсе"
+            value="box.space.$SPACE$:on_replace(function(old, new, space_name, operation)&#10;    $END$&#10;end)">
+    <variable name="SPACE" expression="" defaultValue="&quot;users&quot;" alwaysStopAt="true" />
+    <context>
+      <option name="TARANTOOL_LUA" value="true" />
+    </context>
+  </template>
+</templateSet>

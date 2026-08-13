@@ -1,0 +1,24 @@
+<!--
+  Content-модуль Plugin Model v2: интеграция с встроенным Терминалом.
+  Кнопка «Консоль» панели инстансов появляется, только когда плагин
+  Terminal включён.
+
+  Иконка и текст объявлены здесь, а не в конструкторе: экшен из XML
+  создаётся лениво, и без атрибута icon кнопка в выключенном состоянии
+  рисовалась серым квадратом вместо посеревшей иконки.
+-->
+<idea-plugin package="com.khovanskiy.tarantool.terminal">
+  <dependencies>
+    <plugin id="org.jetbrains.plugins.terminal" />
+  </dependencies>
+
+  <resource-bundle>messages.TarantoolBundle</resource-bundle>
+
+  <actions>
+    <action id="Tarantool.OpenInstanceConsole"
+            class="com.khovanskiy.tarantool.terminal.OpenInstanceConsoleAction"
+            icon="AllIcons.Debugger.Console">
+      <add-to-group group-id="Tarantool.InstancesExtraActions" />
+    </action>
+  </actions>
+</idea-plugin>

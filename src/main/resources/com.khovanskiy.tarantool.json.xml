@@ -1,0 +1,13 @@
+<!--
+  Content-модуль Plugin Model v2: JSON-схемы для config.yaml и tt.yaml.
+  Загружается только при наличии JSON-плагина; классы модуля живут
+  в пакете com.khovanskiy.tarantool.schema.
+-->
+<idea-plugin package="com.khovanskiy.tarantool.schema">
+  <dependencies>
+    <plugin id="com.intellij.modules.json" />
+  </dependencies>
+  <extensions defaultExtensionNs="JavaScript.JsonSchema">
+    <ProviderFactory implementation="com.khovanskiy.tarantool.schema.TarantoolConfigSchemaProviderFactory" />
+  </extensions>
+</idea-plugin>

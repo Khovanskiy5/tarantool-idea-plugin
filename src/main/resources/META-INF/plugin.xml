@@ -1,0 +1,111 @@
+<idea-plugin package="com.khovanskiy.tarantool">
+  <id>com.khovanskiy.tarantool</id>
+  <name>Tarantool</name>
+  <vendor email="a@khovanskiy.ru" url="https://github.com/Khovanskiy5">Khovanskiy</vendor>
+  <category>Tools Integration</category>
+
+  <description><![CDATA[
+    Unofficial <a href="https://www.tarantool.io/">Tarantool</a> support for IntelliJ IDEA:
+    run and debug Lua scripts with the Tarantool interpreter, manage instances locally,
+    in Docker or in Kubernetes, browse data via Database Tools with a bundled
+    transaction-emulating driver, run luatest suites with a test tree, generate EmmyLua
+    type stubs, validate cluster configs against the official JSON Schema and inspect
+    .snap/.xlog files.
+    <a href="https://github.com/Khovanskiy5/tarantool-idea-plugin">Source code</a>.
+    <br/><br/>
+    Неофициальная поддержка Tarantool в IntelliJ IDEA.
+    <ul>
+      <li><b>Запуск и отладка</b>: конфигурация «Tarantool» (скрипт,
+          интерпретатор, аргументы, LUA_PATH, макросы путей), запуск
+          открытого .lua-файла из контекстного меню, встроенный отладчик
+          tarantool -d, кликабельные ссылки file.lua:line в трейсбеках
+          и журналах.</li>
+      <li><b>Инстансы</b>: панель Tarantool — состояние с автообновлением,
+          запуск/остановка/перезапуск, живые логи, интерактивная консоль
+          во встроенном Терминале; конфигурация «tt (Tarantool CLI)»
+          для любых команд tt.</li>
+      <li><b>Режимы запуска</b>: локально, в Docker (tt исполняется
+          в контейнере через настраиваемый префикс) или в Kubernetes
+          (поды, kubectl logs, kubectl exec).</li>
+      <li><b>Данные</b> (Ultimate): автоматическое создание источников
+          Database Tools по config.yaml — узлы кластера, учётные данные,
+          SQL-диалект Tarantool и поставляемый драйвер-обёртка,
+          позволяющий редактировать данные из грида.</li>
+      <li><b>Тесты</b>: раннер luatest с деревом результатов
+          из TAP-вывода.</li>
+      <li><b>Новый проект</b>: мастер на базе шаблонов tt create
+          (single_instance, cluster, vshard_cluster, config_storage).</li>
+      <li><b>Конфигурация</b>: автодополнение и валидация config.yaml
+          (официальная JSON Schema Tarantool 3) и tt.yaml.</li>
+      <li><b>Типы для EmmyLua2</b>: генерация описаний API интроспекцией
+          установленного Tarantool плюс уточнённые вручную сигнатуры —
+          автодополнение по box, fiber, net.box.</li>
+      <li><b>Разное</b>: просмотр .snap/.xlog/.vylog через tt cat,
+          проверка синтаксиса tt check, live-шаблоны (tspace, tonce,
+          tfiber, tatomic, tnetbox, tlog, twatch).</li>
+    </ul>
+  ]]></description>
+
+  <change-notes><![CDATA[
+    <b>1.0.0</b> — first public release.
+    <ul>
+      <li>Run configurations: Tarantool (Lua scripts), tt CLI, luatest with a test tree.</li>
+      <li>Tarantool tool window: instance status, start/stop/restart, live logs, interactive console.</li>
+      <li>Execution modes: local, Docker (tt inside a container) and Kubernetes (kubectl backend).</li>
+      <li>Database Tools integration (Ultimate): automatic data sources from config.yaml, bundled
+          transaction-emulating JDBC driver, Tarantool SQL dialect.</li>
+      <li>New Project wizard from tt create templates, cluster config JSON Schema,
+          EmmyLua type stubs generation, .snap/.xlog viewer, live templates.</li>
+    </ul>
+  ]]></change-notes>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <!-- Plugin Model v2: необязательные части. Схемы YAML грузятся при
+       наличии JSON-плагина, SQL-диалект — вместе с Database-инструментами
+       (IDEA Ultimate). -->
+  <content>
+    <module name="com.khovanskiy.tarantool.json" />
+    <module name="com.khovanskiy.tarantool.sql" />
+    <module name="com.khovanskiy.tarantool.lua" />
+    <module name="com.khovanskiy.tarantool.terminal" />
+  </content>
+
+  <resource-bundle>messages.TarantoolBundle</resource-bundle>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <configurationType implementation="com.khovanskiy.tarantool.run.TarantoolConfigurationType" />
+    <configurationType implementation="com.khovanskiy.tarantool.tt.TtConfigurationType" />
+    <configurationType implementation="com.khovanskiy.tarantool.luatest.LuatestConfigurationType" />
+    <runConfigurationProducer implementation="com.khovanskiy.tarantool.luatest.LuatestRunConfigurationProducer" order="first" />
+    <runConfigurationProducer implementation="com.khovanskiy.tarantool.run.TarantoolRunConfigurationProducer" />
+    <notificationGroup id="Tarantool" displayType="BALLOON" bundle="messages.TarantoolBundle" key="notification.group.tarantool" />
+    <liveTemplateContext contextId="TARANTOOL_LUA" implementation="com.khovanskiy.tarantool.templates.TarantoolLuaTemplateContext" />
+    <defaultLiveTemplates file="liveTemplates/Tarantool.xml" />
+    <fileType name="Tarantool WAL" implementationClass="com.khovanskiy.tarantool.wal.TarantoolWalFileType" fieldName="INSTANCE" extensions="snap;xlog;vylog" />
+    <fileEditorProvider implementation="com.khovanskiy.tarantool.wal.WalFileEditorProvider" />
+    <directoryProjectGenerator implementation="com.khovanskiy.tarantool.project.TarantoolProjectGenerator" />
+    <newProjectWizard.generator implementation="com.khovanskiy.tarantool.project.TarantoolNewProjectWizard" />
+    <applicationConfigurable parentId="tools" instance="com.khovanskiy.tarantool.settings.TarantoolSettingsConfigurable" id="com.khovanskiy.tarantool.settings" displayName="Tarantool" />
+    <projectConfigurable parentId="com.khovanskiy.tarantool.settings" instance="com.khovanskiy.tarantool.settings.TarantoolProjectConfigurable" id="com.khovanskiy.tarantool.settings.project" key="settings.project.display.name" bundle="messages.TarantoolBundle" />
+    <toolWindow id="Tarantool" anchor="bottom" icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool" factoryClass="com.khovanskiy.tarantool.toolwindow.TarantoolToolWindowFactory" />
+    <postStartupActivity implementation="com.khovanskiy.tarantool.stubs.TarantoolTypesStartup" />
+  </extensions>
+
+  <actions>
+    <!-- Точка расширения тулбара панели инстансов: необязательные модули
+         (например, интеграция с Терминалом) добавляют сюда свои кнопки. -->
+    <group id="Tarantool.InstancesExtraActions" />
+    <action id="Tarantool.GenerateStubs"
+            class="com.khovanskiy.tarantool.stubs.GenerateTarantoolStubsAction"
+            icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
+      <add-to-group group-id="ToolsMenu" anchor="last" />
+    </action>
+    <action id="Tarantool.CheckSyntax"
+            class="com.khovanskiy.tarantool.tt.CheckSyntaxAction"
+            icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
+      <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
+    </action>
+  </actions>
+</idea-plugin>
