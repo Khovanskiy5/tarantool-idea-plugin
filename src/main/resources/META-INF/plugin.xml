@@ -55,6 +55,24 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.4.1</b>
+    <ul>
+      <li>SQL dialect: the shim driver now declares the Tarantool dialect,
+          so consoles no longer show the "Inconsistent language" banner;
+          FROM SEQSCAN parses correctly — tables, columns, aliases and *
+          resolve against the data source schema; built-in functions
+          (COUNT, SUM, TYPEOF, PRINTF, NOW and the rest of Tarantool 3.x
+          set) are recognized and completed; names in SET SESSION are no
+          longer flagged as unresolved columns.</li>
+      <li>Data sources: credentials moved out of the JDBC URL into the
+          username field and the IDE password safe — passwords no longer
+          leak into idea.log; existing data sources are migrated
+          automatically on project open.</li>
+      <li>.emmyrc.json defaults tuned for Tarantool: await-in-sync
+          diagnostic disabled (all code runs in fibers), need-check-nil
+          lowered to a hint; the health check offers a one-click patch
+          for existing configs.</li>
+    </ul>
     <b>1.4.0</b>
     <ul>
       <li>Bundled curated EmmyLua annotations (from the official
