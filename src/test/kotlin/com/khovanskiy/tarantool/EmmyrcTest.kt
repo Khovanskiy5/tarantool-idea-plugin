@@ -26,6 +26,37 @@ class EmmyrcTest {
         val root = JsonParser.parseString(emmyrc.readText()).asJsonObject
         assertEquals("LuaJIT", root.getAsJsonObject("runtime")["version"].asString)
         assertTrue(Emmyrc.missingLibraries(emmyrc).isEmpty())
+        assertTrue(Emmyrc.missingDiagnosticDisables(emmyrc).isEmpty())
+        assertEquals(
+            "hint",
+            root.getAsJsonObject("diagnostics").getAsJsonObject("severity")["need-check-nil"].asString,
+        )
+    }
+
+    @Test
+    @DisplayName("Неотключённые диагностики находятся в существующем конфиге")
+    fun detects_missing_diagnostic_disables() {
+        emmyrc.writeText("""{"runtime": {"version": "LuaJIT"}}""")
+        assertEquals(Emmyrc.DISABLED_DIAGNOSTICS, Emmyrc.missingDiagnosticDisables(emmyrc))
+
+        emmyrc.writeText("""{"diagnostics": {"disable": ["await-in-sync"]}}""")
+        assertTrue(Emmyrc.missingDiagnosticDisables(emmyrc).isEmpty())
+    }
+
+    @Test
+    @DisplayName("Отключение диагностик сохраняет прочее содержимое и идемпотентно")
+    fun add_diagnostic_disables_preserves_content() {
+        emmyrc.writeText("""{"diagnostics": {"disable": ["undefined-global"], "globals": ["box"]}}""")
+        assertTrue(Emmyrc.addDiagnosticDisables(emmyrc, Emmyrc.missingDiagnosticDisables(emmyrc)))
+        assertFalse(Emmyrc.addDiagnosticDisables(emmyrc, Emmyrc.DISABLED_DIAGNOSTICS))
+
+        val diagnostics = JsonParser.parseString(emmyrc.readText()).asJsonObject
+            .getAsJsonObject("diagnostics")
+        assertEquals("box", diagnostics.getAsJsonArray("globals")[0].asString)
+        assertEquals(
+            listOf("undefined-global") + Emmyrc.DISABLED_DIAGNOSTICS,
+            diagnostics.getAsJsonArray("disable").map { it.asString },
+        )
     }
 
     @Test
@@ -80,6 +111,8 @@ class EmmyrcTest {
         emmyrc.writeText("{ workspace: [broken")
         assertTrue(Emmyrc.missingLibraries(emmyrc).isEmpty())
         assertFalse(Emmyrc.addLibraries(emmyrc, Emmyrc.REQUIRED_LIBRARIES))
+        assertTrue(Emmyrc.missingDiagnosticDisables(emmyrc).isEmpty())
+        assertFalse(Emmyrc.addDiagnosticDisables(emmyrc, Emmyrc.DISABLED_DIAGNOSTICS))
         assertEquals("{ workspace: [broken", emmyrc.readText())
     }
 
@@ -95,6 +128,16 @@ class EmmyrcTest {
             emmyrc.writeText(content)
             assertTrue(Emmyrc.missingLibraries(emmyrc).isEmpty(), content)
             assertFalse(Emmyrc.addLibraries(emmyrc, Emmyrc.REQUIRED_LIBRARIES), content)
+            assertEquals(content, emmyrc.readText(), content)
+        }
+        for (content in listOf(
+            """{"diagnostics": []}""",
+            """{"diagnostics": null}""",
+            """{"diagnostics": {"disable": "await-in-sync"}}""",
+        )) {
+            emmyrc.writeText(content)
+            assertTrue(Emmyrc.missingDiagnosticDisables(emmyrc).isEmpty(), content)
+            assertFalse(Emmyrc.addDiagnosticDisables(emmyrc, Emmyrc.DISABLED_DIAGNOSTICS), content)
             assertEquals(content, emmyrc.readText(), content)
         }
     }

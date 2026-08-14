@@ -257,16 +257,33 @@ class TarantoolHealthCheck : ProjectActivity {
             return
         }
         val missing = Emmyrc.missingLibraries(emmyrc)
-        if (missing.isEmpty()) {
-            return
+        if (missing.isNotEmpty()) {
+            items += Item(
+                TarantoolBundle.message("health.emmyrc.missing.libs", missing.joinToString(", ")),
+                NotificationAction.createSimple(TarantoolBundle.message("health.emmyrc.patch")) {
+                    Emmyrc.addLibraries(emmyrc, Emmyrc.missingLibraries(emmyrc))
+                    refreshEmmyrc(emmyrc)
+                },
+            )
         }
-        items += Item(
-            TarantoolBundle.message("health.emmyrc.missing.libs", missing.joinToString(", ")),
-            NotificationAction.createSimple(TarantoolBundle.message("health.emmyrc.patch")) {
-                Emmyrc.addLibraries(emmyrc, Emmyrc.missingLibraries(emmyrc))
-                LocalFileSystem.getInstance().refreshAndFindFileByIoFile(emmyrc)?.refresh(true, false)
-            },
-        )
+        // Бандл-аннотации помечают йилдящие функции как @async, поэтому без
+        // отключения await-in-sync любой вызов fiber.sleep и т.п. подсвечен
+        // предупреждением. Рекомендация, а не поломка — уровень info.
+        val noisy = Emmyrc.missingDiagnosticDisables(emmyrc)
+        if (noisy.isNotEmpty()) {
+            items += Item(
+                TarantoolBundle.message("health.emmyrc.noisy.diagnostics", noisy.joinToString(", ")),
+                NotificationAction.createSimple(TarantoolBundle.message("health.emmyrc.disable.diagnostics")) {
+                    Emmyrc.addDiagnosticDisables(emmyrc, Emmyrc.missingDiagnosticDisables(emmyrc))
+                    refreshEmmyrc(emmyrc)
+                },
+                warning = false,
+            )
+        }
+    }
+
+    private fun refreshEmmyrc(emmyrc: File) {
+        LocalFileSystem.getInstance().refreshAndFindFileByIoFile(emmyrc)?.refresh(true, false)
     }
 
     /**

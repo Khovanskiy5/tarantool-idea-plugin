@@ -25,6 +25,20 @@ object Emmyrc {
         ".types/tarantool/generated",
     )
 
+    /**
+     * Диагностики, отключаемые в Tarantool-проектах через diagnostics.disable.
+     *
+     * await-in-sync: встроенные аннотации помечают fiber.sleep, net.box,
+     * socket и прочие йилдящие функции как @async (они писались под LuaLS,
+     * где эта проверка выключена по умолчанию), а в emmylua_ls она включена —
+     * и каждый их вызов предупреждает «Async function can only be called in
+     * async function». В Tarantool весь код исполняется в файберах, поэтому
+     * проверка — сплошной шум. Точечно вернуть её в файле можно строкой
+     * «---@diagnostic enable: await-in-sync»: файловый enable сильнее
+     * конфига.
+     */
+    val DISABLED_DIAGNOSTICS = listOf("await-in-sync")
+
     private val GSON = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
 
     private const val SCHEMA_URL =
@@ -46,6 +60,19 @@ object Emmyrc {
         ignoreDir.add(".idea")
         workspace.add("ignoreDir", ignoreDir)
         root.add("workspace", workspace)
+        val diagnostics = JsonObject()
+        val disable = JsonArray()
+        DISABLED_DIAGNOSTICS.forEach(disable::add)
+        diagnostics.add("disable", disable)
+        // Проверки nil полезны, но на идиомах Tarantool (debug.getinfo,
+        // box.space[...]) слишком крикливы — понижаются до hint, не глушатся.
+        // Значения severity — строго error|warning|information|hint: любую
+        // опечатку emmylua_ls не прощает и молча игнорирует ВЕСЬ конфиг
+        // (emmylua-analyzer-rust#1119).
+        val severity = JsonObject()
+        severity.addProperty("need-check-nil", "hint")
+        diagnostics.add("severity", severity)
+        root.add("diagnostics", diagnostics)
         file.writeText(GSON.toJson(root) + "\n")
     }
 
@@ -102,10 +129,65 @@ object Emmyrc {
         return true
     }
 
+    /**
+     * Коды из [DISABLED_DIAGNOSTICS], не отключённые в существующем файле.
+     * Как и у библиотек: нечитаемый, битый или неожиданно устроенный JSON
+     * (diagnostics не объект, disable не массив) даёт пустой список —
+     * безопасно дописать такой файл всё равно нельзя.
+     */
+    fun missingDiagnosticDisables(file: File): List<String> {
+        val root = parse(file) ?: return emptyList()
+        val diagnostics = root.get("diagnostics")
+        if (diagnostics != null && !diagnostics.isJsonObject) {
+            return emptyList()
+        }
+        val disable = (diagnostics as? JsonObject)?.get("disable")
+        if (disable != null && !disable.isJsonArray) {
+            return emptyList()
+        }
+        val present = presentStrings(disable as? JsonArray)
+        return DISABLED_DIAGNOSTICS.filterNot { it in present }
+    }
+
+    /**
+     * Дописывает недостающие коды в diagnostics.disable, сохраняя остальное
+     * содержимое; повторный вызов дублей не создаёт. Возвращает true,
+     * если файл изменён.
+     */
+    fun addDiagnosticDisables(file: File, codes: List<String>): Boolean {
+        if (codes.isEmpty()) {
+            return false
+        }
+        val root = parse(file) ?: return false
+        val diagnosticsElement = root.get("diagnostics")
+        val diagnostics = when {
+            diagnosticsElement == null -> JsonObject().also { root.add("diagnostics", it) }
+            diagnosticsElement.isJsonObject -> diagnosticsElement.asJsonObject
+            else -> return false
+        }
+        val disableElement = diagnostics.get("disable")
+        val disable = when {
+            disableElement == null -> JsonArray().also { diagnostics.add("disable", it) }
+            disableElement.isJsonArray -> disableElement.asJsonArray
+            else -> return false
+        }
+        val present = presentStrings(disable)
+        val toAdd = codes.filterNot { it in present }
+        if (toAdd.isEmpty()) {
+            return false
+        }
+        toAdd.forEach(disable::add)
+        file.writeText(GSON.toJson(root) + "\n")
+        return true
+    }
+
     private fun presentLibraries(library: JsonArray?): Set<String> =
-        (library ?: JsonArray())
+        presentStrings(library).map(::normalize).toSet()
+
+    private fun presentStrings(array: JsonArray?): Set<String> =
+        (array ?: JsonArray())
             .filter { it.isJsonPrimitive && it.asJsonPrimitive.isString }
-            .map { normalize(it.asString) }
+            .map { it.asString }
             .toSet()
 
     /** «./путь/» и «путь» — один каталог. */
