@@ -205,7 +205,7 @@ function clock.thread64() end
 ---@see clock.proc
 ---
 ---@generic T...
----@param func fun(...: T...)
+---@param func fun(...: T...): ...any
 ---@param ... T...
 ---@return table
 function clock.bench(func, ...) end

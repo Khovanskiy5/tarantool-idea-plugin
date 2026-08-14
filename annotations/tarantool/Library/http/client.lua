@@ -7,15 +7,38 @@
 ---The HTTP client uses the [`libcurl`](https://curl.haxx.se/libcurl/) library under the hood and takes into account the [environment variables](https://curl.haxx.se/libcurl/c/libcurl-env.html) libcurl understands.
 local http = {}
 
+---An encoder function: serializes a request body based on its content type.
+---@alias http.client.encoder fun(body: any, content_type?: string): string
+
+---A decoder function: deserializes response data based on the `Content-Type` header value.
+---@alias http.client.decoder fun(body: string, content_type?: string): any
+
+---@class http.client
+---@field encoders table<string, http.client.encoder> encoders used to serialize a request body based on its content type
+---@field decoders table<string, http.client.decoder> decoders used to deserialize response data based on the `Content-Type` header value
 local http_client = {}
 
 ---@class http.client.options
 ---@field max_connections? integer is the maximum number of entries in the cache. It affects libcurl CURLMOPT_MAXCONNECTS. The default is -1.
 ---@field max_total_connections? integer is the maximum number of active connections. It affects libcurl CURLMOPT_MAX_TOTAL_CONNECTIONS. It is ignored if the curl version is less than 7.30. The default is 0, which allows libcurl to scale accordingly to easily handles count.
 
----@param options http.client.options
+---@param options? http.client.options
 ---@return http.client
 function http.new(options) end
+
+---Default encoders used to serialize a request body based on its content type.
+---
+---Keys are content types (for example, `'application/json'`), values are encoder functions. A client instance created with `http.new()` gets a copy of this table as `client.encoders`.
+---
+---@type table<string, http.client.encoder>
+http.encoders = {}
+
+---Default decoders used to deserialize response data based on the `Content-Type` header value.
+---
+---Keys are content types (for example, `'application/json'`), values are decoder functions. A client instance created with `http.new()` gets a copy of this table as `client.decoders`.
+---
+---@type table<string, http.client.decoder>
+http.decoders = {}
 
 ---@class http.client.request.options
 ---@field ca_file? string path to an SSL certificate file to verify the peer with.
@@ -52,7 +75,7 @@ function http.new(options) end
 ---@param method string
 ---@param url string
 ---@param body? string
----@param opts http.client.request.options
+---@param opts? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:request(method, url, body, opts) end
@@ -61,7 +84,7 @@ function http_client:request(method, url, body, opts) end
 ---
 ---@param url string
 ---@param body string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:patch(url, body, options) end
@@ -69,7 +92,7 @@ function http_client:patch(url, body, options) end
 ---Shortcut for `http_client:request("OPTIONS", url, nil, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:options(url, options) end
@@ -78,7 +101,7 @@ function http_client:options(url, options) end
 ---
 ---@param url string
 ---@param body string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:put(url, body, options) end
@@ -86,7 +109,7 @@ function http_client:put(url, body, options) end
 ---Shortcut for `http_client:request("CONNECT", url, body, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:connect(url, options) end
@@ -94,7 +117,7 @@ function http_client:connect(url, options) end
 ---Shortcut for `http_client:request("DELETE", url, body, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:delete(url, options) end
@@ -103,7 +126,7 @@ function http_client:delete(url, options) end
 ---
 ---@param url string
 ---@param body string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:post(url, body, options) end
@@ -111,7 +134,7 @@ function http_client:post(url, body, options) end
 ---Shortcut for `http_client:request("TRACE", url, body, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:trace(url, options) end
@@ -119,7 +142,7 @@ function http_client:trace(url, options) end
 ---Shortcut for `http_client:request("HEAD", url, body, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:head(url, options) end
@@ -127,7 +150,7 @@ function http_client:head(url, options) end
 ---Shortcut for `http_client:request("GET", url, body, opts)`
 ---
 ---@param url string
----@param options http.client.request.options
+---@param options? http.client.request.options
 ---@return http.response
 ---@async
 function http_client:get(url, options) end
@@ -154,7 +177,7 @@ function http_client:stat() end
 ---@param opts? http.client.request.options
 ---@return http.response
 ---@async
-function http.request(method, url, body, opts)` end
+function http.request(method, url, body, opts) end
 
 ---Shortcut for `http.request("PATCH", url, body, opts)`
 ---

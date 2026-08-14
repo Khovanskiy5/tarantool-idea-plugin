@@ -97,11 +97,11 @@ function decimal.rescale(n, new_scale) end
 ---
 ---@param n decimal_like
 ---@return number scale
-function decimal.scale(n, new_scale) end
+function decimal.scale(n) end
 
----Get the number of digits of a decimal number.
+---Get base-10 logarithm of a decimal number.
 ---
----**Example:** if `a` is `123.4560` then `decimal.precision(a)` returns `7`.
+---**Example:** if `a` is `100` then `decimal.log10(a)` returns `2`.
 ---
 ---@param n decimal_like
 ---@return decimal

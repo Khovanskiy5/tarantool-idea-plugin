@@ -475,7 +475,7 @@ function space_methods:get(key) end
 --- ...
 --- ```
 ---
----@param tuple box.tuple<T, U> | T tuple to be inserted.
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted.
 ---@return box.tuple<T, U> tuple the inserted tuple
 function space_methods:insert(tuple) end
 
@@ -570,13 +570,13 @@ function space_methods:rename(space_name) end
 --- box.space.tester:replace{5000, 'tuple number five thousand'}
 --- ```
 ---
----@param box.tuple<T, U> | T tuple to be inserted
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted
 ---@return box.tuple<T, U> tuple the inserted tuple
 function space_methods:replace(tuple) end
 
 ---Insert a tuple into a space (synonym for [`replace()`](lua://box.space.replace)).
 ---
----@param tuple box.tuple<T, U> | T tuple to be inserted.
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted.
 ---@return box.tuple<T, U> tuple the inserted tuple
 function space_methods:put(tuple) end
 

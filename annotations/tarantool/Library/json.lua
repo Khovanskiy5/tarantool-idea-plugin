@@ -1,5 +1,6 @@
 ---@meta
 
+---@class json
 local json = {}
 
 ---@class json.cfg
@@ -83,5 +84,26 @@ function json.decode(str, cfg) end
 
 ---A value comparable to Lua "nil" which may be useful as a placeholder in a tuple.
 json.NULL = box.NULL
+
+---A metatable which, when set on a Lua table, makes `json.encode` serialize the table as a JSON array.
+---
+---Tables decoded from JSON arrays get this metatable when `decode_save_metatables` is `true` (default).
+---
+---@type table
+json.array_mt = {}
+
+---A metatable which, when set on a Lua table, makes `json.encode` serialize the table as a JSON map (object).
+---
+---Tables decoded from JSON maps get this metatable when `decode_save_metatables` is `true` (default).
+---
+---@type table
+json.map_mt = {}
+
+---Create a new instance of the JSON serializer with an independent configuration.
+---
+---The new instance has the same functions (`encode`, `decode`, `cfg`, ...) as the `json` module, but `cfg` calls on it do not affect the global `json` module configuration.
+---
+---@return json serializer a new independent JSON serializer instance
+function json.new() end
 
 return json

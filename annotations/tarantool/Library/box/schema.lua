@@ -208,8 +208,8 @@ function box.schema.user.drop(username, options) end
 ---@param object_type box.schema.privileges.object_type A database object type to grant privileges to (for example, `space`, `role`, or `function`)
 ---@param object_name string The name of a database object to grant privileges to
 ---@param options? { grantor?: string | number, if_not_exists?: boolean }
----@overload fun(username: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
----@overload fun(username: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
+---@overload fun(username: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+---@overload fun(username: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
 function box.schema.user.grant(username, permissions, object_type, object_name, options) end
 
 ---Revoke privileges from a user or from another role.
@@ -233,9 +233,9 @@ function box.schema.user.grant(username, permissions, object_type, object_name, 
 ---@param object_type box.schema.privileges.object_type A database object type to grant privileges to (for example, `space`, `role`, or `function`)
 ---@param object_name string The name of a database object to grant privileges to
 ---@param options? { grantor?: string | number, if_not_exists?: boolean }
----@overload fun(username: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
----@overload fun(username: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
-function box.schema.user.revoke(username, object_type, object_name, options) end
+---@overload fun(username: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+---@overload fun(username: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+function box.schema.user.revoke(username, permissions, object_type, object_name, options) end
 
 ---Sets a password for a currently logged in or a specified user.
 ---
@@ -300,14 +300,38 @@ function box.schema.user.info(username) end
 ---For explanation of how Tarantool maintains user data, see section [Users](doc://authentication-users) and reference on [box.space._user](lua://box.space.user) space.
 ---
 ---@param username? string The name of the user
----@return bool exists `true` if a user exists; `false` if a user does not
+---@return boolean exists `true` if a user exists; `false` if a user does not
 function box.schema.user.exists(username) end
+
+---Enable a user.
+---
+---A shortcut for `box.schema.user.grant('{username}', 'usage,session', 'universe', nil, {if_not_exists = true})`.
+---
+---@param username string The name of the user
+function box.schema.user.enable(username) end
+
+---Disable a user.
+---
+---A shortcut for `box.schema.user.revoke('{username}', 'usage,session', 'universe', nil, {if_exists = true})`.
+---
+---@param username string The name of the user
+function box.schema.user.disable(username) end
 
 ---Role privileges management.
 box.schema.role = {}
 
+---Create a role.
+---
+---For an explanation of how Tarantool maintains role data, see the section [Roles](doc://authentication-roles).
+---
+---@param role_name string name of the role
+---@param options? { if_not_exists?: boolean }
 function box.schema.role.create(role_name, options) end
 
+---Drop a role.
+---
+---@param role_name string name of the role
+---@param options? { if_exists?: boolean }
 function box.schema.role.drop(role_name, options) end
 
 ---Grant privileges a role.
@@ -330,9 +354,9 @@ function box.schema.role.drop(role_name, options) end
 ---@param object_type box.schema.privileges.object_type A database object type to grant privileges to (for example, `space`, `role`, or `function`)
 ---@param object_name string The name of a database object to grant privileges to
 ---@param options? { grantor?: string | number, if_not_exists?: boolean }
----@overload fun(role_name: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
----@overload fun(role_name: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
-function box.schema.role.grant(role_name, object_type, object_name, options) end
+---@overload fun(role_name: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+---@overload fun(role_name: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+function box.schema.role.grant(role_name, permissions, object_type, object_name, options) end
 
 ---Revoke privileges from a role.
 ---
@@ -347,9 +371,9 @@ function box.schema.role.grant(role_name, object_type, object_name, options) end
 ---@param object_type box.schema.privileges.object_type A database object type to grant privileges to (for example, `space`, `role`, or `function`)
 ---@param object_name string The name of a database object to grant privileges to
 ---@param options? { grantor?: string | number, if_not_exists?: boolean }
----@overload fun(role_name: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
----@overload fun(role_name: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean }})
-function box.schema.role.revoke(role_name, object_type, object_name, options) end
+---@overload fun(role_name: string, permissions: box.schema.privileges.permissions, universe: 'universe', _: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+---@overload fun(role_name: string, role_name: string, _1: nil, _2: nil, options?: { grantor?: string | number, if_not_exists?: boolean })
+function box.schema.role.revoke(role_name, permissions, object_type, object_name, options) end
 
 ---Return a description of a role's privileges.
 ---
@@ -362,12 +386,144 @@ function box.schema.role.info(role_name) end
 ---Check if role exists.
 ---
 ---@param role_name string
----@return bool exists `true` if a role exists; `false` if a role does not
+---@return boolean exists `true` if a role exists; `false` if a role does not
 function box.schema.role.exists(role_name) end
 
 ---Stored function management.
----
----This module hasn't been documented yet.
----
----@type any
 box.schema.func = {}
+
+---@class box.schema.func.create_options: table
+---@field if_not_exists? boolean (Default: false) `true` allows creating a function even if it already exists
+---@field setuid? boolean (Default: false) treat the function's caller as the function's creator, with all the creator's privileges
+---@field language? 'LUA' | 'SQL_EXPR' | 'C' (Default: 'LUA') the function language
+---@field is_sandboxed? boolean (Default: false) whether the function should be executed in an isolated environment
+---@field is_deterministic? boolean (Default: false) whether the function should be deterministic
+---@field is_multikey? boolean (Default: false) whether the function used in a functional index returns multiple keys
+---@field body? string the function definition
+---@field takes_raw_args? boolean (Default: false) wrap the function arguments in a MsgPack object
+---@field exports? table (Default: {'LUA'}) the languages that can call the function
+---@field param_list? table the Lua type names of the function's parameters
+---@field returns? string (Default: 'any') the Lua type name of the function's return value
+
+---Create a function tuple without including the body option.
+---
+---This is called a "not persistent" function because functions without bodies are not persistent.
+---
+---For a function to be executable with [`conn:call()`](lua://net.box.call), the function's creator must give the caller "execute" privilege.
+---
+---**Example:**
+---
+--- ```lua
+--- box.schema.func.create('calculate', { if_not_exists = false })
+--- box.schema.func.create('sum', { body = [[function(a, b) return a + b end]] })
+--- ```
+---
+---@param func_name string name of the function, which should conform to the rules for object names
+---@param function_options? box.schema.func.create_options
+function box.schema.func.create(func_name, function_options) end
+
+---Drop a function tuple.
+---
+---**Example:**
+---
+--- ```lua
+--- box.schema.func.drop('calculate')
+--- ```
+---
+---@param func_name string the name of the function
+---@param options? { if_exists?: boolean }
+function box.schema.func.drop(func_name, options) end
+
+---Check whether a function tuple exists.
+---
+---**Example:**
+---
+--- ```lua
+--- box.schema.func.exists('calculate')
+--- ```
+---
+---@param func_name string the name of the function
+---@return boolean exists `true` if the function exists; `false` otherwise
+function box.schema.func.exists(func_name) end
+
+---Reload a C module with all its functions without restarting the server.
+---
+---Under the hood, Tarantool loads a new copy of the module (`*.so` shared library) and starts routing all new request executions to the new version. The previous version remains active until all started calls are finished. All shared libraries are loaded with `RTLD_LOCAL` (see "man 3 dlopen"), therefore multiple copies can co-exist without any problems.
+---
+---**Note:** Reload will fail if a module was loaded from Lua script with [`ffi.load()`](https://luajit.org/ext_ffi_api.html).
+---
+---**Example:**
+---
+--- ```lua
+--- box.schema.func.reload('module')
+--- ```
+---
+---@param module_name? string the name of the module to reload
+function box.schema.func.reload(module_name) end
+
+---@class box.schema.sequence_options: table
+---@field start? number (Default: 1) the START WITH value: the value which will be generated the first time
+---@field min? number (Default: 1) values smaller than this cannot be generated
+---@field max? number (Default: 9223372036854775807) values larger than this cannot be generated
+---@field cycle? boolean (Default: false) whether to start again when values cannot be generated
+---@field cache? number (Default: 0) the number of values to be cached (reserved for future use)
+---@field step? number (Default: 1) what to add to the previous generated value when generating a new value
+---@field if_not_exists? boolean (Default: false) `true` allows creating a sequence even if it already exists
+
+---@class box.schema.sequence_object: table
+local sequence_object = {}
+
+---Generate the next value and return it.
+---
+---The generation algorithm is simple:
+---* If this is the first time, then return the `start` value.
+---* If the previous value plus the `step` value is less than the `min` value or greater than the `max` value, that is "overflow", so either raise an error (if `cycle = false`) or return the `max` value (if `cycle = true` and `step < 0`) or return the `min` value (if `cycle = true` and `step > 0`).
+---
+---@return number value
+function sequence_object:next() end
+
+---Change any of the sequence's options.
+---
+---Requirements and restrictions are the same as for [`box.schema.sequence.create()`](lua://box.schema.sequence.create).
+---
+---@param options box.schema.sequence_options
+function sequence_object:alter(options) end
+
+---Set the sequence back to its original state.
+---
+---The effect is that a subsequent `next()` will return the `start` value.
+function sequence_object:reset() end
+
+---Set the "previous value" to the new value.
+---
+---The effect is that a subsequent `next()` will return the new value plus the `step` value.
+---
+---@param new_value number
+function sequence_object:set(new_value) end
+
+---Return the last retrieved value of the specified sequence or throw an error if no value has been generated yet.
+---
+---*Since 2.4.1*
+---
+---@return number value
+function sequence_object:current() end
+
+---Drop an existing sequence.
+function sequence_object:drop() end
+
+---Sequence management.
+box.schema.sequence = {}
+
+---Create a new sequence generator.
+---
+---**Example:**
+---
+--- ```lua
+--- sq = box.schema.sequence.create('sq', { min = 1, start = 1 })
+--- sq:next()
+--- ```
+---
+---@param name string the name of the sequence, which should conform to the rules for object names
+---@param options? box.schema.sequence_options
+---@return box.schema.sequence_object sequence_object
+function box.schema.sequence.create(name, options) end

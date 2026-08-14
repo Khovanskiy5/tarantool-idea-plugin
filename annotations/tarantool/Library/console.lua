@@ -97,6 +97,8 @@ function console.ac(auto_completion_flag) end
 ---The default end-of-request marker is a newline (line feed).
 ---
 ---Custom markers are not necessary because Tarantool can tell when a multi-line request has not ended (for example, if it sees that a function declaration does not have an end keyword). Nonetheless for special needs, or for entering multi-line requests in older Tarantool versions, you can change the end-of-request marker. As a result, newline alone is not treated as end of request.
+---
+---@param marker string a custom end-of-request marker
 function console.delimiter(marker) end
 
 ---Get default output format.
@@ -118,6 +120,9 @@ function console.set_default_output(format) end
 ---The default value is `;` semicolon. Saying `eos()` will return the current value.
 ---
 ---For example, after `require('console').eos('!!')` responses will end with '!!'.
+---
+---@param str? string a custom end-of-output string
+---@return string? # the current end-of-output string when called without arguments
 function console.eos(str) end
 
 return console

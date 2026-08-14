@@ -274,7 +274,7 @@ function box.atomic(opts, tx_function, ...) end
 --- space_id: 512
 --- ```
 ---
----@param trigger_func box.on_commit_trigger_func
+---@param trigger_func? box.on_commit_trigger_func
 ---@param old_trigger_func? box.on_commit_trigger_func
 function box.on_commit(trigger_func, old_trigger_func) end
 
@@ -284,9 +284,9 @@ function box.on_commit(trigger_func, old_trigger_func) end
 ---
 ---@see box.on_commit
 ---
----@param trigger_func box.on_commit_trigger_func
+---@param trigger_func? box.on_commit_trigger_func
 ---@param old_trigger_func? box.on_commit_trigger_func
-function box.on_commit(trigger_func, old_trigger_func) end
+function box.on_rollback(trigger_func, old_trigger_func) end
 
 ---@alias box.iterator {
 ---     iterator: "GE" | "GT" | "LT" | "LE" | "EQ" | "REQ" | "BITS_ALL_NOT_SET" | "BITS_ALL_SET" | "BITS_ANY_SET" | "OVERLAPS" | "NEIGHBOR" | "ALL" | box.index.iterator,
@@ -546,9 +546,8 @@ function box.watch(key, func) end
 --- ```
 ---
 ---@param key string
----@param func fun(key: string, value: any)
----@return box.watcher
-function box.watch_once(key, func) end
+---@return any value the current value of the given notification key
+function box.watch_once(key) end
 
 ---@alias box.update_operation
 ---| '+' # Addition. Values must be numeric, e.g. unsigned or decimal.
@@ -658,3 +657,165 @@ function box.watch_once(key, func) end
 ---@param extra_parameters table optional table for placeholders in the statement [the rules for SQL grammar](doc://sql_statements_and_clauses)
 ---@return any query_result depends on statement
 function box.execute(sql_statement, extra_parameters) end
+
+---Get the ID of the current transaction.
+---
+---*Since 2.10.0*
+---
+---@return number? txn_id the ID of the current transaction if called within a transaction, `nil` otherwise
+function box.txn_id() end
+
+---A table with the available transaction isolation levels.
+---
+---The keys can be used as the `txn_isolation` option of [`box.begin()`](lua://box.begin) or of a `net.box` stream `begin()` call, for example `box.txn_isolation_level.READ_COMMITTED`.
+---
+---@class box.txn_isolation_level_table: table
+---@field DEFAULT number the isolation level set by the `box.cfg.txn_isolation` option
+---@field BEST_EFFORT number transactional manager decides the isolation level
+---@field READ_COMMITTED number a transaction can read committed but unconfirmed changes
+---@field READ_CONFIRMED number a transaction can only read confirmed changes
+---@field LINEARIZABLE number linearizable read
+box.txn_isolation_level = {}
+
+---@class box.prepared: table
+---@field stmt_id number the statement id (a hash of the statement string)
+---@field params table a map of parameter names and types
+---@field param_count number the number of parameters in the statement
+---@field metadata? table column names and types (for SELECT or PRAGMA statements only)
+local prepared_table = {}
+
+---Execute the prepared statement.
+---
+---@param parameters? table values for the placeholders in the statement
+---@return any query_result depends on the statement
+function prepared_table:execute(parameters) end
+
+---Undo the result of the earlier [`box.prepare()`](lua://box.prepare) request.
+function prepared_table:unprepare() end
+
+---Prepare the SQL statement: the syntax of the statement is checked, and it is compiled into byte code.
+---
+---*Since 2.3.1*
+---
+---Prepared statements enhance performance of statements that are executed repeatedly: the statement is compiled once but can be executed many times with different parameter values.
+---
+---Prepared statements "expire" (become invalid) if any database object is dropped, created, or altered.
+---
+---**Example:**
+---
+--- ```lua
+--- local prepared = box.prepare('SELECT ?, ?;')
+--- prepared:execute({ 1, 2 })
+--- prepared:unprepare()
+--- ```
+---
+---@param sql_statement string the SQL statement to prepare
+---@return box.prepared prepared_table an object with the compiled statement and methods to execute or release it
+function box.prepare(sql_statement) end
+
+---Undo the result of an earlier [`box.prepare()`](lua://box.prepare) request.
+---
+---*Since 2.3.1*
+---
+---This is equivalent to the `prepared_table:unprepare()` method.
+---
+---@param stmt_id number the id of the prepared statement (`prepared_table.stmt_id`)
+function box.unprepare(stmt_id) end
+
+---@class box.func.object: table
+---@field id number the function id
+---@field name string the function name
+---@field language string the function language: `'LUA'`, `'SQL_EXPR'` or `'C'`
+---@field setuid boolean whether the function is executed with the creator's privileges
+---@field is_deterministic boolean whether the function is deterministic
+---@field is_sandboxed boolean whether the function is executed in an isolated environment
+---@field is_multikey boolean whether the function returns multiple keys (functional index)
+---@field takes_raw_args boolean whether the arguments are wrapped in a MsgPack object
+---@field returns string the Lua type name of the function's return value
+---@field exports table the languages that can call the function
+---@field body? string the function definition
+local func_object = {}
+
+---Call the stored function.
+---
+---**Example:**
+---
+--- ```lua
+--- box.func.sum:call({ 1, 2 })
+--- ```
+---
+---@param arguments? table a table with the arguments of the function
+---@return any ...
+function func_object:call(arguments) end
+
+---Registry of the functions created with [`box.schema.func.create()`](lua://box.schema.func.create).
+---
+---@type table<string, box.func.object>
+box.func = {}
+
+---Registry of the sequences created with [`box.schema.sequence.create()`](lua://box.schema.sequence.create).
+---
+---@type table<string, box.schema.sequence_object>
+box.sequence = {}
+
+---C modules management.
+---
+---*Since 2.10.0*
+---
+---The `box.lib` module allows loading and executing C stored procedures on read-only nodes without registering them in the `_func` system space.
+box.lib = {}
+
+---@class box.lib.module: table
+local lib_module = {}
+
+---Load a function from the module.
+---
+---@param name string the name of the function to load
+---@return fun(...: any): any func a callable function object
+function lib_module:load(name) end
+
+---Unload the module.
+---
+---@return boolean ok
+function lib_module:unload() end
+
+---Load a shared library (a C module).
+---
+---@param path string the path to the shared library without the `.so` extension
+---@return box.lib.module module
+function box.lib.load(path) end
+
+---@class box.runtime.info: table
+---@field lua number heap size of the Lua garbage collector, in bytes
+---@field maxalloc number the maximum size of the runtime memory, in bytes
+---@field used number the current amount of allocated runtime memory, in bytes
+
+---Runtime memory statistics.
+box.runtime = {}
+
+---Show a runtime memory usage report, in bytes.
+---
+---The runtime memory encompasses internal Lua memory as well as the runtime arena. The Lua memory stores Lua objects. The runtime arena stores Tarantool-specific objects -- for example, runtime tuples, network buffers and other objects associated with the application server subsystem.
+---
+---@return box.runtime.info info
+function box.runtime.info() end
+
+---Database read views.
+---
+---A read view is a fixed snapshot of the entire database that isn't affected by future data modifications. Read views provide access to database spaces and their indexes and enable the execution of read-only requests against these snapshots.
+---
+---**Note:** creating read views is supported by the Enterprise Edition only.
+box.read_view = {}
+
+---Create a new read view (Enterprise Edition only).
+---
+---@param opts? { name?: string } `name` specifies the read view name; the default is `'unknown'`
+---@return any read_view_object the new read view object
+function box.read_view.open(opts) end
+
+---Return an array of all active database read views.
+---
+---The array includes both system and user read views.
+---
+---@return any[] read_views
+function box.read_view.list() end

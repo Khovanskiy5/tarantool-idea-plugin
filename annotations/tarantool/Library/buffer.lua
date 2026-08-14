@@ -18,6 +18,11 @@ local buffer_object = {}
 ---@return buffer
 function buffer.ibuf(size) end
 
+---Default readahead value: the size of a read-ahead chunk, in bytes.
+---
+---@type integer
+buffer.READAHEAD = 16320
+
 ---Allocate size bytes for buffer_object.
 ---
 ---@param size integer memory in bytes to allocate
@@ -33,7 +38,7 @@ function buffer_object:capacity() end
 ---
 ---@param size integer memory in bytes to check
 ---@return ffi.cdata* rpos
-function buffer_object:checksize(size) end.
+function buffer_object:checksize(size) end
 
 ---Return the size of the range occupied by data.
 ---

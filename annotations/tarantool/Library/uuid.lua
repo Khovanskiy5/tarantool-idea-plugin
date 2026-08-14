@@ -126,9 +126,8 @@ function uuid.is_uuid(value) end
 --- ...
 --- ```
 ---
----@param value nilany
----@return boolean is_nil true if the specified value is a nil uuid, and false otherwise
-function uuid.is_nil(value) end
+---@return boolean is_nil true if the value is all zero, and false otherwise
+function uuid_obj:isnil() end
 
 ---Zero UUID.
 ---

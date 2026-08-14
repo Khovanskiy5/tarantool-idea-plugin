@@ -44,8 +44,8 @@ function socket.getaddrinfo(host, port, timeout, options) end
 
 ---@class socket.tcp_server_handler
 ---@field handler fun(client: socket) client handler, executed once after accept() happens (once per connection)
----@field prepare fun(server: socket): number? it may have parameters = the socket object and a table with client information; it should return either a backlog value or nothing;
----@field name string
+---@field prepare? fun(server: socket): number? it may have parameters = the socket object and a table with client information; it should return either a backlog value or nothing;
+---@field name? string
 
 ---The socket.tcp_server() function makes Tarantool act as a server that can accept connections.
 ---
@@ -300,5 +300,45 @@ function socket_object:peer() end
 ---@param read_or_write_flags "R" | "W" | "RW" | 1 | 2 | 3 # 'R' or 1 = read, 'W' or 2 = write, 'RW' or 3 = read|write.
 ---@param timeout? number number of seconds to wait
 function socket.iowait(fd, read_or_write_flags, timeout) end
+
+---Create a socket object from an existing file descriptor.
+---
+---The file descriptor should point to a socket. The socket type is determined automatically via `getsockopt(SO_TYPE)`.
+---
+---@param fd number file descriptor of an existing socket
+---@return socket
+function socket.from_fd(fd) end
+
+---Create a pair of connected sockets (see `socketpair(2)`).
+---
+---Both sockets are switched to the non-blocking mode.
+---
+---@param domain string socket domain, for example 'AF_UNIX'
+---@param type string socket type, for example 'SOCK_STREAM'
+---@param protocol number | string socket protocol number or name, may be 0
+---@return socket first, socket second two connected sockets on success
+---@return nil # on error
+function socket.socketpair(domain, type, protocol) end
+
+---Create a listening server socket without starting an accept loop.
+---
+---Binds to the given host/port and starts listening the same way `socket.tcp_server()` does, but does not accept connections. The optional `prepare` callback may set socket options and return a listen backlog value.
+---
+---@param host string host name or IP
+---@param port number host port, may be 0
+---@param prepare (fun(server: socket): number?) | { prepare?: fun(server: socket): number? } prepare callback or a table with an optional `prepare` field
+---@param timeout? number host resolving timeout in seconds
+---@return socket server, { host: string, family: string, port: number } addr on success
+---@return nil, string error_message on error
+function socket.tcp_server_create(host, port, prepare, timeout) end
+
+---Run an accept loop on a listening socket created with `socket.tcp_server_create()`.
+---
+---For every accepted connection, the handler is executed in a new fiber. The function does not return until the server socket is closed.
+---
+---@async
+---@param sock socket | number listening server socket or its file descriptor
+---@param handler fun(client: socket) | socket.tcp_server_handler connection handler or a table with a `handler` field and an optional `name`
+function socket.tcp_server_loop(sock, handler) end
 
 return socket

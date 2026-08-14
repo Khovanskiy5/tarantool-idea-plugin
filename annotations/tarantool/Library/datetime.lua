@@ -7,7 +7,7 @@
 ---It allows creating the date and time values either via the object interface or via parsing string values conforming to the ISO-8601 standard.
 local datetime = {}
 
----@alias datetime.units { nsec?: integer, sec?: integer, min?: integer?, hour?: integer, day?: integer, year?: integer, timestamp?: number, tzoffset?: integer, tz?: string }
+---@alias datetime.units { nsec?: integer, usec?: integer, msec?: integer, sec?: integer, min?: integer, hour?: integer, day?: integer, month?: integer, year?: integer, timestamp?: number, tzoffset?: integer, tz?: string }
 
 ---@class datetime: ffi.cdata*
 ---@field nsec integer (Default: 0) (usec, msec) Fractional part of the last second. You can specify either nanoseconds (nsec), or microseconds (usec), or milliseconds (msec). Specifying two of these units simultaneously or all three ones lead to an error
@@ -42,6 +42,27 @@ local datetime_obj = {}
 ---@param units? datetime.units
 ---@return datetime datetime_obj
 function datetime.new(units) end
+
+---Create a datetime object with the current date and time (nanosecond
+---precision, local timezone).
+---
+---**Example:**
+---
+--- ```tarantoolsession
+--- tarantool> datetime.now()
+--- ---
+--- - 2023-08-30T11:52:10.032222218+0300
+--- ...
+--- ```
+---
+---@return datetime
+function datetime.now() end
+
+---Check whether the specified value is a datetime object.
+---
+---@param value any
+---@return boolean
+function datetime.is_datetime(value) end
 
 ---Convert the standard `datetime` object presentation into a formatted string.
 ---
@@ -244,8 +265,42 @@ function datetime_obj:set(units) end
 --- ```
 ---
 ---@param input_string string string with the date and time information.
----@param opts { format: 'iso8601' | 'rfc3339' | string, tzoffset: integer, tz: string }
+---@param opts? { format?: 'iso8601' | 'rfc3339' | string, tzoffset?: integer, tz?: string }
+---@return datetime datetime_obj a datetime object
+---@return integer parsed_chars a number of parsed characters
 function datetime.parse(input_string, opts) end
+
+---Parse a date string and return a datetime object with the time part omitted.
+---
+---The input string should contain the date part of one of the formats
+---supported by [`datetime.parse()`](lua://datetime.parse).
+---
+---@param input_string string string with the date information
+---@return datetime datetime_obj a datetime object
+---@return integer parsed_chars a number of parsed characters
+function datetime.parse_date(input_string) end
+
+---Timezone information.
+---
+---A Lua table that maps timezone names and timezone abbreviations
+---to its index and vice-versa.
+---
+---**Example:**
+---
+--- ```tarantoolsession
+--- tarantool> datetime.TZ['Europe/Moscow']
+--- ---
+--- - 947
+--- ...
+---
+--- tarantool> datetime.TZ[947]
+--- ---
+--- - Europe/Moscow
+--- ...
+--- ```
+---
+---@type table<string|integer, string|integer>
+datetime.TZ = {}
 
 ---# Builtin `datetime.interval` submodule
 ---
@@ -257,7 +312,7 @@ function datetime.parse(input_string, opts) end
 datetime.interval = {}
 
 ---@alias datetime.interval.adjust 'none' | 'last' | 'excess'
----@alias datetime.interval.units { nsec?: integer, sec?: integer, min?: integer?, hour?: integer, day?: integer, year?: integer, adjust?: datetime.interval.adjust }
+---@alias datetime.interval.units { nsec?: integer, usec?: integer, msec?: integer, sec?: integer, min?: integer, hour?: integer, day?: integer, week?: integer, month?: integer, year?: integer, adjust?: datetime.interval.adjust }
 
 ---@class datetime.interval: ffi.cdata*
 ---@field nsec integer (Default: 0) (usec, msec) Fractional part of the last second. You can specify either nanoseconds (nsec), or microseconds (usec), or milliseconds (msec). Specifying two of these units simultaneously or all three ones lead to an error
@@ -290,6 +345,12 @@ local interval_obj = {}
 ---@param units? datetime.interval.units
 ---@return datetime.interval interval_obj
 function datetime.interval.new(units) end
+
+---Check whether the specified value is an interval object.
+---
+---@param value any the value to check
+---@return boolean is_interval true if the specified value is an interval object; otherwise, false
+function datetime.interval.is_interval(value) end
 
 ---Convert the information from an `interval` object into the table format.
 ---

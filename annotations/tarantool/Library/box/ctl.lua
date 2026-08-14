@@ -98,3 +98,67 @@ function box.ctl.on_shutdown(trigger_function, old_trigger_function) end
 ---
 ---@param trigger function
 function box.ctl.on_election(trigger) end
+
+---Create a "schema_init trigger".
+---
+---*Since 1.10.0*
+---
+---The `trigger-function` will be executed when [`box.cfg{}`](lua://box.cfg) happens for the first time. That is, the `schema_init` trigger is called before the server's configuration and recovery begins, and therefore `box.ctl.on_schema_init` must be called before `box.cfg` is called.
+---
+---If the parameters are (nil, old-trigger-function), then the old trigger is deleted.
+---
+---A common use is: make a `schema_init` trigger function which creates a `before_replace` trigger function on a system space. Thus, since system spaces are created when the server starts, the `before_replace` triggers will be enabled when the system spaces are created.
+---
+---@param trigger_function fun()
+---@param old_trigger_function? fun()
+---@return fun()? created_trigger
+function box.ctl.on_schema_init(trigger_function, old_trigger_function) end
+
+---Set a timeout for the `on_shutdown` trigger.
+---
+---*Since 2.8.1*
+---
+---If the timeout has expired, the server stops immediately regardless of whether any `on_shutdown` triggers are left unexecuted.
+---
+---@param timeout number timeout in seconds (default: 3 seconds)
+function box.ctl.set_on_shutdown_timeout(timeout) end
+
+---@alias box.ctl.recovery_state
+---| 'snapshot_recovered' # the node has recovered the snapshot files
+---| 'wal_recovered' # the node has recovered the WAL files
+---| 'indexes_built' # the node has built secondary indexes for memtx spaces
+---| 'synced' # the node has synced with enough remote peers to leave the orphan mode
+
+---Create a trigger executed on different stages of a node recovery or initial configuration.
+---
+---*Since 2.11.0*
+---
+---Note that you need to set the trigger before the initial `box.cfg` call to make it work for all the recovery stages.
+---
+---The trigger function accepts one parameter -- a string that shows the current recovery state.
+---
+---A registered trigger is executed on each of the supported recovery states. Note that the `synced` state might be reached long after the instance starts accepting requests.
+---
+---@param trigger_function fun(state: box.ctl.recovery_state)
+---@return fun()? created_trigger
+function box.ctl.on_recovery_state(trigger_function) end
+
+---Check if recovery has finished.
+---
+---*Since 2.5.3*
+---
+---Until recovery has finished, space changes such as `insert` or `update` are not possible.
+---
+---@return boolean finished `true` if recovery has finished, otherwise `false`
+function box.ctl.is_recovery_finished() end
+
+---Make the instance a bootstrap leader of a replica set.
+---
+---*Since 3.0.0*
+---
+---To be able to make the instance a bootstrap leader manually, the [`replication.bootstrap_strategy`](doc://configuration_reference_replication_bootstrap_strategy) configuration option should be set to `supervised`. In this case, the instances do not choose a bootstrap leader automatically but wait for it to be appointed manually.
+---
+---**Note:** configuration fails if no bootstrap leader is appointed during a `replication.connect_timeout`.
+---
+---@param opts? { graceful?: boolean } *since 3.4.0*: `graceful = true` checks for existing bootstrap leaders before assuming the role
+function box.ctl.make_bootstrap_leader(opts) end

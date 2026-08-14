@@ -64,6 +64,26 @@ function string.ljust(input_string, width, pad_character) end
 ---@return string
 function string.rjust(input_string, width, pad_character) end
 
+---Return the string centered in a string of length `width`.
+---
+---**Example:**
+---
+--- ```tarantoolsession
+--- tarantool> string = require('string')
+--- ---
+--- ...
+--- tarantool> string.center('A', 5)
+--- ---
+--- - '  A  '
+--- ...
+--- ```
+---
+---@param input_string string the string to center
+---@param width number the width of the string after centering
+---@param pad_character? string (default: ' ') a single character
+---@return string
+function string.center(input_string, width, pad_character) end
+
 ---Return the hexadecimal value of the input string.
 ---
 ---**Example:**
@@ -139,12 +159,12 @@ function string.startswith(input_string, start_string, start_pos, end_pos) end
 --- ...
 --- ```
 ---
----@param input_string string the string where start-string should be looked for
----@param start_string string the string to look for
+---@param input_string string the string where end-string should be looked for
+---@param end_string string the string to look for
 ---@param start_pos? integer position: where to start looking within input-string
 ---@param end_pos? integer position: where to end looking within input-string
 ---@return boolean
-function string.endswith(input_string, start_string, start_pos, end_pos) end
+function string.endswith(input_string, end_string, start_pos, end_pos) end
 
 ---Return the value of the input string, after removing characters on the left.
 ---
@@ -163,9 +183,9 @@ function string.endswith(input_string, start_string, start_pos, end_pos) end
 --- ```
 ---
 ---@param input_string string the string to process
----@param list_of_characters string (default: ' ') what characters can be stripped.
+---@param list_of_characters? string (default: ' ') what characters can be stripped.
 ---@return string
-function string.lstrip(input_string) end
+function string.lstrip(input_string, list_of_characters) end
 
 ---Return the value of the input string, after removing characters on the right.
 ---
@@ -184,9 +204,9 @@ function string.lstrip(input_string) end
 --- ```
 ---
 ---@param input_string string the string to process
----@param list_of_characters string (default: ' ') what characters can be stripped.
+---@param list_of_characters? string (default: ' ') what characters can be stripped.
 ---@return string
-function string.rstrip(input_string) end
+function string.rstrip(input_string, list_of_characters) end
 
 ---Return the value of the input string, after removing characters on the left and the right.
 ---
@@ -205,6 +225,6 @@ function string.rstrip(input_string) end
 --- ```
 ---
 ---@param input_string string the string to process
----@param list_of_characters string (default: ' ') what characters can be stripped.
+---@param list_of_characters? string (default: ' ') what characters can be stripped.
 ---@return string
-function string.strip(input_string) end
+function string.strip(input_string, list_of_characters) end

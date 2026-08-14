@@ -13,12 +13,15 @@ local net_box = {}
 ---@field public state 'active' | 'fetch_schema' | 'error' | 'error_reconnect' | 'closed' | 'initial' | 'graceful_shutdown'
 ---@field public error string
 ---@field public peer_uuid? string
+---@field public space table<string|integer, net.box.space<any, any>> remote spaces, available after schema fetch
 ---@field public _fiber? Fiber
 local conn = {}
 
 ---@class net.box.request_options
 ---@field public is_async? boolean
 ---@field public timeout? number
+---@field public buffer? buffer buffer from the `buffer` module to store the raw response
+---@field public return_raw? boolean return a raw MsgPack object instead of decoding (since version 2.10.0)
 
 ---@class net.box.call_options
 ---@field timeout number? Timeout of Call
@@ -131,7 +134,7 @@ function conn:on_disconnect(new_callback, old_callback) end
 --- ```
 ---
 ---@async
----@param wait_timeout number
+---@param wait_timeout? number
 ---@return boolean is_connected true when connected, false on failure.
 function conn:wait_connected(wait_timeout) end
 
@@ -151,6 +154,99 @@ function conn:close() end
 ---
 ---@return boolean
 function conn:is_connected() end
+
+---Reload the schema from the server.
+---
+---Sends a ping request which makes the connection fetch actual schema changes, if any.
+function conn:reload_schema() end
+
+---A remote space object, available as `conn.space.<space-name>` after a connection is established and the schema is fetched.
+---
+---The methods are similar to the [`box.space`](lua://box.space) methods, but they refer to spaces of the remote instance and accept an extra `options` table with `timeout`, `buffer`, `is_async`, `return_raw` and other request options.
+---
+---@class net.box.space<T, U>
+---@field id integer ordinal space number on the remote instance
+---@field name string name of the space
+local remote_space = {}
+
+---Search for a tuple or a set of tuples in the given remote space.
+---
+---The remote equivalent of [`box.space...:select()`](lua://box.space.select).
+---
+---@async
+---@param key? box.tuple<T, U> | tuple_type[] | scalar value to be matched against the index key, which may be multi-part
+---@param options? net.box.request_options
+---@return box.tuple<T, U>[] list the list of tuples
+function remote_space:select(key, options) end
+
+---Search for a tuple in the given remote space.
+---
+---The remote equivalent of [`box.space...:get()`](lua://box.space.get).
+---
+---@async
+---@param key box.tuple<T, U> | tuple_type[] | scalar
+---@param options? net.box.request_options
+---@return box.tuple<T, U> | nil tuple the tuple whose index key matches key, or nil
+function remote_space:get(key, options) end
+
+---Insert a tuple into a remote space.
+---
+---The remote equivalent of [`box.space...:insert()`](lua://box.space.insert).
+---
+---@async
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted
+---@param options? net.box.request_options
+---@return box.tuple<T, U> tuple the inserted tuple
+function remote_space:insert(tuple, options) end
+
+---Insert or replace a tuple in a remote space.
+---
+---The remote equivalent of [`box.space...:replace()`](lua://box.space.replace).
+---
+---@async
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted
+---@param options? net.box.request_options
+---@return box.tuple<T, U> tuple the inserted tuple
+function remote_space:replace(tuple, options) end
+
+---Insert or replace a tuple in a remote space (synonym for [`replace()`](lua://box.space.replace)).
+---
+---@async
+---@param tuple box.tuple<T, U> | T | tuple_type[] tuple to be inserted
+---@param options? net.box.request_options
+---@return box.tuple<T, U> tuple the inserted tuple
+function remote_space:put(tuple, options) end
+
+---Update a tuple in a remote space.
+---
+---The remote equivalent of [`box.space...:update()`](lua://box.space.update).
+---
+---@async
+---@param key box.tuple<T, U> | tuple_type[] | scalar
+---@param update_operations [box.update_operation, integer | string, tuple_type][]
+---@param options? net.box.request_options
+---@return box.tuple<T, U> | nil tuple the updated tuple if it was found
+function remote_space:update(key, update_operations, options) end
+
+---Update or insert a tuple in a remote space.
+---
+---The remote equivalent of [`box.space...:upsert()`](lua://box.space.upsert).
+---
+---@async
+---@param tuple box.tuple<T, U> | tuple_type[]
+---@param update_operations [box.update_operation, integer | string, tuple_type][]
+---@param options? net.box.request_options
+function remote_space:upsert(tuple, update_operations, options) end
+
+---Delete a tuple from a remote space.
+---
+---The remote equivalent of [`box.space...:delete()`](lua://box.space.delete).
+---
+---@async
+---@param key box.tuple<T, U> | tuple_type[] | scalar
+---@param options? net.box.request_options
+---@return box.tuple<T, U> | nil tuple the deleted tuple
+function remote_space:delete(key, options) end
 
 ---@class net.box.connect_options
 ---@field public wait_connected? boolean|number
@@ -244,5 +340,37 @@ function net_box.connect(endpoint, options) end
 ---@param options? net.box.connect_options
 ---@return net.box.conn
 function net_box.new(endpoint, options) end
+
+---Create a connection from a file descriptor number.
+---
+---The file descriptor should point to a socket and be switched to the non-blocking mode.
+---
+---**Example:**
+---
+--- ```lua
+--- local net_box = require('net.box')
+--- local socket = require('socket')
+---
+--- local s = socket.tcp_connect('localhost', 3301)
+--- local conn = net_box.from_fd(s:fd())
+--- ```
+---
+---@param fd integer file descriptor of a socket in the non-blocking mode
+---@param options? net.box.connect_options
+---@return net.box.conn
+function net_box.from_fd(fd, options) end
+
+---A pre-created, always-established connection object to the local Tarantool server.
+---
+---It enables polymorphic use of the `net_box` API for local and remote access. Unlike a remote connection, requests which do not modify data do not yield.
+---
+---**Example:**
+---
+--- ```lua
+--- net_box.self:ping()
+--- ```
+---
+---@type net.box.conn
+net_box.self = {}
 
 return net_box

@@ -43,6 +43,14 @@ local xlog = {}
 ---
 ---@param file string
 ---@return fun.iterator<any, nil>
-function xlog.paris(file) end
+function xlog.pairs(file) end
+
+---Read the meta block of a snapshot or write-ahead-log file.
+---
+---Returns a table with the file metadata, e.g. `filetype`, `version`, `instance_uuid`, `vclock`.
+---
+---@param file string
+---@return table<string, any> meta
+function xlog.meta(file) end
 
 return xlog

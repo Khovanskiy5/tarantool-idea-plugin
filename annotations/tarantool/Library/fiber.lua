@@ -144,7 +144,7 @@ function fiber.yield() end
 --- ```
 ---
 ---@param fiber_object? fiber
----@return "running" | "dead" | "suspected"
+---@return "running" | "dead" | "suspended"
 function fiber.status(fiber_object) end
 
 ---@class fiber.info
@@ -271,8 +271,60 @@ function fiber.top() end
 --- ...
 --- ```
 ---
----@param fiber_object fiber
-function fiber.kill(fiber_object) end
+---@param fiber_or_id fiber | integer fiber object or numeric id of the fiber
+function fiber.kill(fiber_or_id) end
+
+---Cancel a fiber.
+---
+---Accepts a fiber object or a numeric fiber id. Same as [`fiber.kill()`](lua://fiber.kill).
+---
+---@param fiber_or_id fiber | integer fiber object or numeric id of the fiber
+function fiber.cancel(fiber_or_id) end
+
+---Wake up an idle (sleeping or suspended) fiber.
+---
+---Accepts a fiber object or a numeric fiber id. The fiber does not resume immediately, but at the next opportunity given by the scheduler.
+---
+---Module-level counterpart of `fiber_object:wakeup()`.
+---
+---@param fiber_or_id fiber | integer fiber object or numeric id of the fiber
+function fiber.wakeup(fiber_or_id) end
+
+---"Join" a joinable fiber.
+---
+---Wait until the fiber's function ends and get the result returned by it.
+---
+---Works only for fibers created with `fiber.new()` and made joinable with `fiber.set_joinable()`.
+---
+---Module-level counterpart of `fiber_object:join()`.
+---
+---@async
+---@param fiber_or_id fiber | integer fiber object or numeric id of the fiber
+---@param timeout? number maximum number of seconds to wait
+---@return boolean success, any ...
+function fiber.join(fiber_or_id, timeout) end
+
+---Make a fiber joinable.
+---
+---A joinable fiber can be waited for using [`fiber.join()`](lua://fiber.join).
+---
+---Module-level counterpart of `fiber_object:set_joinable()`.
+---
+---@param fiber_or_id fiber | integer fiber object or numeric id of the fiber
+---@param true_or_false boolean
+function fiber.set_joinable(fiber_or_id, true_or_false) end
+
+---Get or change the name of the current fiber.
+---
+---Without arguments, returns the name of the current fiber. With a `name` argument, sets a new name for the current fiber (max length is 255).
+---
+---A fiber object may be passed as the first argument to get or change the name of that fiber instead.
+---
+---@param name? string the new fiber name
+---@param options? { truncate?: boolean } if `truncate` is true, a too long name is truncated instead of raising an error
+---@return string? name the fiber name when called without a new name
+---@overload fun(fiber_object: fiber, name?: string, options?: { truncate?: boolean }): string?
+function fiber.name(name, options) end
 
 ---Check if the current fiber has been cancelled and throw an exception if this is the case.
 ---
@@ -290,7 +342,7 @@ function fiber.kill(fiber_object) end
 --- - error: fiber is cancelled
 --- ...
 --- ```
--
+---
 function fiber.testcancel() end
 
 ---Get the current system time (in seconds since the epoch) as a Lua number.
@@ -377,6 +429,48 @@ function fiber.top_enable() end
 ---@see fiber.top
 function fiber.top_disable() end
 
+---Get or set the size of the fiber pool used to serve external thread callbacks in the TX thread.
+---
+---Without arguments, returns the current pool size. With a `size` argument, sets a new pool size (must be greater than 0) and returns the previous one.
+---
+---The same value can be set via the `fiber.tx_user_pool_size` configuration option.
+---
+---@param size? integer new pool size, must be greater than 0
+---@return integer size the pool size before the call
+function fiber.tx_user_pool_size(size) end
+
+---Enable collection of parent backtraces.
+---
+---When enabled, fibers created after this call remember the backtrace of their parent at the moment of creation, and [`fiber.info()`](lua://fiber.info) shows it for such fibers.
+---
+---Available only if Tarantool is built with backtrace support.
+---
+---@see fiber.parent_backtrace_disable
+function fiber.parent_backtrace_enable() end
+
+---Disable collection of parent backtraces.
+---
+---Fibers created after this call do not remember the backtrace of their parent. This is the default behavior.
+---
+---Available only if Tarantool is built with backtrace support.
+---
+---@see fiber.parent_backtrace_enable
+function fiber.parent_backtrace_disable() end
+
+---Enable reporting a backtrace of the first allocation when a fiber gc region leak is found.
+---
+---By default, the backtrace is collected in debug builds only, since collecting it slows allocations down.
+---
+---Available only if Tarantool is built with backtrace support.
+---
+---@see fiber.leak_backtrace_disable
+function fiber.leak_backtrace_enable() end
+
+---Disable reporting a backtrace of the first allocation when a fiber gc region leak is found.
+---
+---@see fiber.leak_backtrace_enable
+function fiber.leak_backtrace_disable() end
+
 ---Check whether a slice for the current fiber is over.
 ---
 ---A fiber slice limits the time period of executing a fiber without yielding control.
@@ -441,7 +535,7 @@ local fiber_object = {}
 
 ---Get a fiber's ID
 ---
----@return number # fiber id
+---@return integer # fiber id
 function fiber_object:id() end
 
 ---Get or change a fiber's name
@@ -523,8 +617,9 @@ function fiber_object:set_joinable(true_or_false) end
 ---However, it works only if the fiber was created with `fiber.new()` and was made joinable with `fiber_object:set_joinable()`.
 ---
 ---@async
+---@param timeout? number maximum number of seconds to wait
 ---@return boolean success, any ...
-function fiber_object:join() end
+function fiber_object:join(timeout) end
 
 ---@class fiber.channel
 local channel_object = {}

@@ -43,6 +43,7 @@
 --- ---
 --- ...
 --- ```
+---@class yaml
 local yaml = {}
 
 ---@class yaml.cfg
@@ -58,6 +59,7 @@ local yaml = {}
 ---@field encode_sparse_safe? number (default: 10) A limit ensuring that small Lua arrays are always encoded as sparse arrays (instead of generating an error or encoding as a map)
 ---@field decode_invalid_numbers? boolean (default: true) A flag saying whether to enable decoding of NaN and Inf numbers
 ---@field decode_save_metatables? boolean (default: true) A flag saying whether to set metatables for all arrays and maps
+---@field decode_max_depth? number (default: 128) Max recursion depth for decoding
 
 ---Set values affecting the behavior of encode and decode functions.
 ---
@@ -152,5 +154,26 @@ function yaml.decode(str, cfg) end
 --- ...
 --- ```
 yaml.NULL = box.NULL
+
+---A metatable which, when set on a Lua table, makes `yaml.encode` serialize the table as a YAML sequence (array).
+---
+---Tables decoded from YAML sequences get this metatable when `decode_save_metatables` is `true` (default).
+---
+---@type table
+yaml.array_mt = {}
+
+---A metatable which, when set on a Lua table, makes `yaml.encode` serialize the table as a YAML mapping (map).
+---
+---Tables decoded from YAML mappings get this metatable when `decode_save_metatables` is `true` (default).
+---
+---@type table
+yaml.map_mt = {}
+
+---Create a new instance of the YAML serializer with an independent configuration.
+---
+---The new instance has the same functions (`encode`, `decode`, `cfg`, ...) as the `yaml` module, but `cfg` calls on it do not affect the global `yaml` module configuration.
+---
+---@return yaml serializer a new independent YAML serializer instance
+function yaml.new() end
 
 return yaml

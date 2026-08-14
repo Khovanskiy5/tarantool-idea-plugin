@@ -11,6 +11,39 @@
 
 local fio = {}
 
+---Functions for directory or file existence and type checks.
+fio.path = {}
+
+---Check whether the specified path exists (dereferences symlinks).
+---
+---@param path_name string path to directory or file.
+---@return boolean
+function fio.path.exists(path_name) end
+
+---Check whether the specified path is a directory.
+---
+---@param path_name string path to directory or file.
+---@return boolean
+function fio.path.is_dir(path_name) end
+
+---Check whether the specified path is a file.
+---
+---@param path_name string path to directory or file.
+---@return boolean
+function fio.path.is_file(path_name) end
+
+---Check whether the specified path is a symlink.
+---
+---@param path_name string path to directory or file.
+---@return boolean
+function fio.path.is_link(path_name) end
+
+---Check whether the specified path exists without dereferencing symlinks.
+---
+---@param path_name string path to directory or file.
+---@return boolean
+function fio.path.lexists(path_name) end
+
 ---Concatenate partial string, separated by '/' to form a path name.
 ---
 ---**Example:** `fio.pathjoin('/etc', 'default', 'myfile')` => `'/etc/default/myfile'`
@@ -54,36 +87,6 @@ function fio.dirname(path_name) end
 ---@param file_name string
 ---@return string directory_name that is, path name including file name.
 function fio.abspath(file_name) end
-
----Check if file or directory exists.
----
----@param path string
----@return boolean # `true` if path-name refers to a directory or file that exists and is not a broken symbolic link; otherwise `false`.
-function fio.path.exists(path) end
-
----Check if file or directory is a directory.
----
----@param path string
----@return boolean # `true` if path-name refers to a directory; otherwise `false`.
-function fio.path.is_dir(path) end
-
----Check if file or directory is a file.
----
----@param path string
----@return boolean # `true` if path-name refers to a file; otherwise `false`
-function fio.path.is_file(path) end
-
----Check if file or directory is a link.
----
----@param path string
----@return boolean # `true` if path-name refers to a symbolic link; otherwise `false`
-function fio.path.is_link(path) end
-
----Check if file or directory exists.
----
----@param path string
----@return boolean # `true` if path-name refers to a directory or file that exists or is a broken symbolic link; otherwise `false`
-function fio.path.lexists(path) end
 
 ---Set the mask bits used when creating files or directories.
 ---
@@ -152,13 +155,13 @@ function fio.stat(path) end
 ---
 ---@param path_name string path of directory.
 ---@param mode? number Mode bits can be passed as a number or as string constants, for example S_IWUSR. Mode bits can be combined by enclosing them in braces.
----@return boolean success, string error_message?
+---@return boolean success, string? error_message
 function fio.mkdir(path_name, mode) end
 
 ---Delete a directory
 ---
 ---@param path_name string
----@return boolean success, string message?
+---@return boolean success, string? message
 function fio.rmdir(path_name) end
 
 ---Change working directory.
@@ -195,6 +198,7 @@ function fio.listdir(path_name) end
 ---   - /etc/xml
 ---   - /etc/xul-ext
 --- ```
+---@param path_name string path name, which may contain wildcard characters.
 ---@return string[] list list of files whose names match the input string
 function fio.glob(path_name) end
 
@@ -330,6 +334,7 @@ function fio.copyfile(path_name, new_path_name) end
 --- - true
 --- ```
 ---
+---@param path_name string path to the file.
 ---@param owner_user string new username.
 ---@param owner_group string new groupname.
 ---@return boolean success, string? error_message
@@ -365,7 +370,7 @@ function fio.sync() end
 ---@param path_name string
 ---@param flags? number|flags|flags[]
 ---@param mode? number
----@return fio.file, box.error err?
+---@return fio.file file, box.error? err
 function fio.open(path_name, flags, mode) end
 
 ---@class fio.file

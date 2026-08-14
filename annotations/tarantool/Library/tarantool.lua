@@ -21,7 +21,7 @@
 ---| array # Tarantool arr
 
 ---@alias tuple_type scalar | compound
----@alias tuple_type_name 'unsigned' | 'string' | 'boolean' | 'number' | 'double' | 'integer' | 'decimal' | 'varbinary' | 'uuid' | 'scalar' | 'array' | 'map' | 'any'
+---@alias tuple_type_name 'unsigned' | 'string' | 'boolean' | 'number' | 'double' | 'integer' | 'decimal' | 'varbinary' | 'uuid' | 'datetime' | 'interval' | 'scalar' | 'array' | 'map' | 'any'
 
 ---@alias map table<string, tuple_type> Tarantool kv map, keys are always strings
 ---@alias array tuple_type[] Tarantool array
@@ -193,8 +193,6 @@ function table.clear(t) end
 ---@type ffi.cdata*
 box.NULL = {}
 
-box.NULL
-
 ---Parse and execute an arbitrary chunk of Lua code. This function is mainly useful to define and run Lua code without having to introduce changes to the global Lua environment.
 ---
 ---@param lua_chunk_string string Lua code
@@ -231,5 +229,56 @@ function package.search(name) end
 ---@param path ?string
 function package.setsearchroot(path) end
 
----@type any
+---Tarantool version, e.g. `3.8.0-0-g6e8dcc5`.
+---
+---@type string
 _TARANTOOL = {}
+
+---@class tarantool.build
+---@field target string Platform and build target, e.g. `Darwin-arm64-Release`
+---@field options string CMake options used to build Tarantool
+---@field linking string Linking type: `dynamic` or `static`
+---@field mod_format string Module format, e.g. `dylib` or `so`
+---@field flags string Compiler flags used to build Tarantool
+---@field compiler string Compiler used to build Tarantool, e.g. `Clang-14.0.0`
+---@field asan boolean Whether the build has AddressSanitizer enabled
+---@field test_build boolean Whether this is a test build
+---@field tzdata_version string Version of the tzdata package used (since 3.2.0)
+
+---# Builtin `tarantool` module
+---
+---The `tarantool` module provides information about the Tarantool executable: version, build details, uptime, PID.
+---
+---**Example:**
+---
+--- ```tarantoolsession
+--- tarantool> tarantool = require('tarantool')
+--- ---
+--- ...
+--- tarantool> tarantool.version
+--- ---
+--- - 3.8.0-0-g6e8dcc5
+--- ...
+--- ```
+---
+---@class tarantool
+---@field version string Tarantool version, e.g. `3.8.0-0-g6e8dcc5`
+---@field build tarantool.build Build information
+local tarantool = {}
+
+---Package name: `Tarantool` for the community version.
+---
+---@type string
+tarantool.package = "Tarantool"
+
+---Return the process ID of the Tarantool server.
+---
+---@return number pid
+function tarantool.pid() end
+
+---Return the number of seconds since the Tarantool server started (a floating-point value).
+---
+---@return number uptime
+function tarantool.uptime() end
+
+return tarantool

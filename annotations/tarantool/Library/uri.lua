@@ -96,7 +96,7 @@ function uri.format(uri_format, include_password) end
 --- ```
 ---
 ---@param str string
----@param uri_encoding_opts uri.encoding_opt
+---@param uri_encoding_opts? uri.encoding_opt
 ---@return string
 function uri.escape(str, uri_encoding_opts) end
 
@@ -144,11 +144,63 @@ function uri.escape(str, uri_encoding_opts) end
 --- ```
 ---
 ---@param str string
----@param uri_encoding_opts uri.encoding_opt
+---@param uri_encoding_opts? uri.encoding_opt
 ---@return string
 function uri.unescape(str, uri_encoding_opts) end
 
+---Parse a string with several URIs separated by commas into components.
+---
+---**Example:**
+---
+--- ```lua
+--- local uri = require('uri')
+---
+--- parsed_uris = uri.parse_many('host1:3301,host2:3302')
+--- ```
+---
+---@param uri_string string a string with Uniform Resource Identifiers separated by commas
+---@return uri[] parsed_uris a table with parsed URI components for every URI in the string
+function uri.parse_many(uri_string) end
+
+---Construct a multi-value for a query parameter.
+---
+---Used to assign several values to one query parameter, for example, in the
+---`params` table passed to [`uri.parse()`](lua://uri.parse) or in the
+---`query` component passed to [`uri.format()`](lua://uri.format).
+---
+---**Example:**
+---
+--- ```lua
+--- local uri = require('uri')
+---
+--- parsed_uri = uri.parse({ '/tmp/unix.sock', params = { q = uri.values('v1', 'v2') } })
+--- ```
+---
+---@param ... any parameter values
+---@return table values a multi-value holding all the passed values
+function uri.values(...) end
+
+---Build a set of unreserved symbols for URI encoding options.
+---
+---The result is intended for the `unreserved` field of the
+---[uri.encoding_opt](lua://uri.encoding_opt) table.
+---
+---**Example:**
+---
+--- ```lua
+--- local escape_opts = {
+---     plus = true,
+---     unreserved = uri.unreserved('a-z')
+--- }
+--- ```
+---
+---@param symbol_string string a string defining unreserved symbols (for example, 'a-z' or 'A-Za-z0-9')
+---@return any unreserved a set of unreserved symbols
+function uri.unreserved(symbol_string) end
+
 ---@class uri.encoding_opt
+---@field unreserved? any a set of unreserved symbols that are not encoded, built by [`uri.unreserved()`](lua://uri.unreserved)
+---@field plus? boolean enable encoding of the space character as `+` (default: false)
 
 ---Encoding options that use unreserved symbols defined in RFC 3986
 ---
