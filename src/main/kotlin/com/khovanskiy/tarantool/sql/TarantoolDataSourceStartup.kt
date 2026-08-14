@@ -1,5 +1,8 @@
 package com.khovanskiy.tarantool.sql
 
+import com.intellij.credentialStore.OneTimeString
+import com.intellij.database.access.DatabaseCredentials
+import com.intellij.database.dataSource.DatabaseAuthProviderNames
 import com.intellij.database.dataSource.DatabaseDriver
 import com.intellij.database.dataSource.DatabaseDriverImpl
 import com.intellij.database.dataSource.DatabaseDriverManager
@@ -141,8 +144,8 @@ class TarantoolDataSourceStartup : ProjectActivity {
         val manager = LocalDataSourceManager.getInstance(project)
 
         // Существующие источники чинятся идемпотентно: актуальный драйвер,
-        // автокоммит и наша СУБД (она кэшируется в info источника
-        // и из forcedDbms драйвера не пересчитывается).
+        // автокоммит, наша СУБД (она кэшируется в info источника
+        // и из forcedDbms драйвера не пересчитывается) и креды вне URL.
         for (dataSource in manager.dataSources.filter { it.url?.startsWith("jdbc:tarantool:") == true }) {
             if (dataSource.databaseDriver?.driverClass != SHIM_DRIVER_CLASS) {
                 dataSource.setDatabaseDriver(driver)
@@ -151,6 +154,7 @@ class TarantoolDataSourceStartup : ProjectActivity {
             if (dataSource.dbms != TarantoolDbms.TARANTOOL) {
                 dataSource.info.setDbms(TarantoolDbms.TARANTOOL)
             }
+            moveUrlCredentialsToStorage(dataSource)
         }
 
         // Недостающие источники: роутеры и лидеры репликасетов; одиночный
@@ -158,9 +162,6 @@ class TarantoolDataSourceStartup : ProjectActivity {
         val targets = nodes.ifEmpty {
             listOf(TarantoolClusterConfig.Node("instance", connection.host, connection.port, router = false, leader = true))
         }
-        val query = connection.user?.let { user ->
-            "?user=$user" + (connection.password?.let { "&password=$it" } ?: "")
-        }.orEmpty()
 
         var created = 0
         for (node in targets) {
@@ -170,15 +171,24 @@ class TarantoolDataSourceStartup : ProjectActivity {
                 continue
             }
             val suffix = if (targets.size > 1) "-" + node.name else ""
+            // Креды не попадают в URL: Database Tools пишет URL подключения
+            // в idea.log целиком, и пароль оказывался в логе открытым
+            // текстом. Логин — штатное поле источника, пароль — хранилище
+            // паролей IDE; при подключении user-pass-провайдер сам передаёт
+            // их драйверу через Properties.
             val dataSource = LocalDataSource.create(
                 project.name + suffix + "@" + node.port,
                 SHIM_DRIVER_CLASS,
-                "jdbc:tarantool:" + address + query,
+                "jdbc:tarantool:" + address,
                 connection.user,
             )
             dataSource.setDatabaseDriver(driver)
             dataSource.setAutoCommit(true)
             dataSource.info.setDbms(TarantoolDbms.TARANTOOL)
+            if (connection.user != null) {
+                dataSource.authProviderId = DatabaseAuthProviderNames.CREDENTIALS_ID
+            }
+            connection.password?.let { storePassword(dataSource, it) }
             manager.addDataSource(dataSource)
             created++
         }
@@ -194,6 +204,31 @@ class TarantoolDataSourceStartup : ProjectActivity {
         }
     }
 
+    /**
+     * Переносит user/password из query-параметров URL источника в штатные
+     * поля и хранилище паролей IDE. Прошлые версии плагина собирали URL
+     * вида jdbc:tarantool://host:port?user=...&password=..., а Database
+     * Tools логирует URL подключения целиком — пароль утекал в idea.log.
+     * Прочие query-параметры (таймауты и т.п.) остаются на месте.
+     */
+    private fun moveUrlCredentialsToStorage(dataSource: LocalDataSource) {
+        val url = dataSource.url ?: return
+        val split = splitUrlCredentials(url) ?: return
+        if (dataSource.username.isNullOrEmpty() && !split.user.isNullOrEmpty()) {
+            dataSource.username = split.user
+        }
+        if (split.user != null) {
+            dataSource.authProviderId = DatabaseAuthProviderNames.CREDENTIALS_ID
+        }
+        split.password?.takeIf { it.isNotEmpty() }?.let { storePassword(dataSource, it) }
+        dataSource.url = split.url
+    }
+
+    private fun storePassword(dataSource: LocalDataSource, password: String) {
+        dataSource.passwordStorage = LocalDataSource.Storage.PERSIST
+        DatabaseCredentials.getInstance().storePassword(dataSource, OneTimeString(password))
+    }
+
     /** Путь к jar шима внутри установленного плагина. */
     private fun findShimJar(): File? {
         val plugin = PluginManagerCore.getPlugin(PluginId.getId("com.khovanskiy.tarantool")) ?: return null
@@ -207,4 +242,32 @@ class TarantoolDataSourceStartup : ProjectActivity {
         const val SHIM_DRIVER_CLASS = "com.khovanskiy.tarantool.jdbcshim.ShimDriver"
 
     }
+}
+
+/** Результат выноса кредов из JDBC URL: очищенный URL и извлечённая пара. */
+internal data class UrlCredentials(val url: String, val user: String?, val password: String?)
+
+/**
+ * Выделяет user/password из query-строки JDBC URL. Возвращает null, если
+ * кредов в URL нет и переносить нечего; остальные параметры сохраняются
+ * в исходном порядке.
+ */
+internal fun splitUrlCredentials(url: String): UrlCredentials? {
+    val query = url.substringAfter('?', "")
+    if (query.isEmpty()) {
+        return null
+    }
+    val params = query.split('&').filter { it.isNotEmpty() }
+    val (credentials, rest) = params.partition {
+        it.substringBefore('=') == "user" || it.substringBefore('=') == "password"
+    }
+    if (credentials.isEmpty()) {
+        return null
+    }
+    val base = url.substringBefore('?')
+    return UrlCredentials(
+        url = if (rest.isEmpty()) base else base + "?" + rest.joinToString("&"),
+        user = credentials.firstOrNull { it.startsWith("user=") }?.substringAfter('='),
+        password = credentials.firstOrNull { it.startsWith("password=") }?.substringAfter('='),
+    )
 }
