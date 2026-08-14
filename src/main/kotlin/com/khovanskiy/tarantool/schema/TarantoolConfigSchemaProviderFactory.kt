@@ -6,6 +6,7 @@ import com.jetbrains.jsonSchema.extension.JsonSchemaFileProvider
 import com.jetbrains.jsonSchema.extension.JsonSchemaProviderFactory
 import com.jetbrains.jsonSchema.extension.SchemaType
 import com.jetbrains.jsonSchema.impl.JsonSchemaVersion
+import com.khovanskiy.tarantool.settings.TarantoolProjectSettings
 import java.io.File
 
 /**
@@ -45,22 +46,7 @@ class TtConfigSchemaProvider : JsonSchemaFileProvider {
 
 class TarantoolConfigSchemaProvider(private val project: Project) : JsonSchemaFileProvider {
 
-    /**
-     * Схема применяется только к файлам с типовым именем внутри проекта tt:
-     * рядом лежит instances.yml либо в корне проекта есть tt.yaml. Иначе
-     * схема цеплялась бы к любому config.yaml, в том числе чужих стеков.
-     */
-    override fun isAvailable(file: VirtualFile): Boolean {
-        if (file.name !in CONFIG_NAMES) {
-            return false
-        }
-        val sibling = file.parent
-        if (sibling != null && INSTANCES_NAMES.any { sibling.findChild(it) != null }) {
-            return true
-        }
-        val basePath = project.basePath ?: return false
-        return File(basePath, "tt.yaml").exists()
-    }
+    override fun isAvailable(file: VirtualFile): Boolean = isSchemaTarget(project, file)
 
     override fun getName(): String = "Tarantool cluster config"
 
@@ -71,9 +57,49 @@ class TarantoolConfigSchemaProvider(private val project: Project) : JsonSchemaFi
 
     override fun getSchemaVersion(): JsonSchemaVersion = JsonSchemaVersion.SCHEMA_2020_12
 
-    private companion object {
-        const val SCHEMA_RESOURCE = "/schemas/tarantool-config.json"
+    companion object {
+        private const val SCHEMA_RESOURCE = "/schemas/tarantool-config.json"
+
+        /** Имена, требующие подтверждения контекстом tt или пользователем. */
         val CONFIG_NAMES = setOf("config.yaml", "config.yml")
-        val INSTANCES_NAMES = setOf("instances.yml", "instances.yaml")
+
+        /**
+         * Имена, специфичные для Tarantool сами по себе: cluster.yml —
+         * кластерная конфигурация, source.yml — файл-источник конфигурации
+         * (например, выгружаемый в etcd). Ложные срабатывания маловероятны,
+         * поэтому схема применяется без дополнительных условий — как
+         * и в официальном VS Code-расширении.
+         */
+        val UNCONDITIONAL_NAMES = setOf("cluster.yaml", "cluster.yml", "source.yaml", "source.yml")
+
+        private val INSTANCES_NAMES = setOf("instances.yml", "instances.yaml")
+
+        /**
+         * config.yaml получает схему внутри проекта tt (рядом instances.yml
+         * либо в корне tt.yaml) или по явному согласию пользователя через
+         * баннер редактора — иначе схема цеплялась бы к любому config.yaml,
+         * в том числе чужих стеков.
+         */
+        fun isSchemaTarget(project: Project, file: VirtualFile): Boolean {
+            if (file.name in UNCONDITIONAL_NAMES) {
+                return true
+            }
+            if (file.name !in CONFIG_NAMES) {
+                return false
+            }
+            if (isInTtContext(project, file)) {
+                return true
+            }
+            return TarantoolProjectSettings.getInstance(project).isSchemaEnabled(file.url)
+        }
+
+        fun isInTtContext(project: Project, file: VirtualFile): Boolean {
+            val sibling = file.parent
+            if (sibling != null && INSTANCES_NAMES.any { sibling.findChild(it) != null }) {
+                return true
+            }
+            val basePath = project.basePath ?: return false
+            return File(basePath, "tt.yaml").exists() || File(basePath, "tt.yml").exists()
+        }
     }
 }

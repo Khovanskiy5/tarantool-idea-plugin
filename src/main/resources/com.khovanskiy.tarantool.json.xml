@@ -10,4 +10,8 @@
   <extensions defaultExtensionNs="JavaScript.JsonSchema">
     <ProviderFactory implementation="com.khovanskiy.tarantool.schema.TarantoolConfigSchemaProviderFactory" />
   </extensions>
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- Баннер «включить схему?» над config.yaml вне tt-окружения. -->
+    <editorNotificationProvider implementation="com.khovanskiy.tarantool.schema.TarantoolConfigNotificationProvider" />
+  </extensions>
 </idea-plugin>

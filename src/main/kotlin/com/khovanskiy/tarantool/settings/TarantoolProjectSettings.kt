@@ -28,6 +28,12 @@ class TarantoolProjectSettings : PersistentStateComponent<TarantoolProjectSettin
         var kubernetesNamespace: String = ""
         var kubernetesPodSelector: String = "app=tarantool"
         var kubernetesConsoleCommand: String = "console"
+
+        // Ответы на баннер «включить схему Tarantool?» для config.yaml вне
+        // tt-окружения: URL файлов, где схема включена или предложение
+        // скрыто. Хранится в .idea/tarantool.xml.
+        var schemaEnabledConfigs: MutableList<String> = mutableListOf()
+        var schemaDismissedConfigs: MutableList<String> = mutableListOf()
     }
 
     private var state = State()
@@ -67,6 +73,22 @@ class TarantoolProjectSettings : PersistentStateComponent<TarantoolProjectSettin
         set(value) {
             state.kubernetesConsoleCommand = value
         }
+
+    fun isSchemaEnabled(fileUrl: String): Boolean = fileUrl in state.schemaEnabledConfigs
+
+    fun enableSchema(fileUrl: String) {
+        if (fileUrl !in state.schemaEnabledConfigs) {
+            state.schemaEnabledConfigs.add(fileUrl)
+        }
+    }
+
+    fun isSchemaDismissed(fileUrl: String): Boolean = fileUrl in state.schemaDismissedConfigs
+
+    fun dismissSchema(fileUrl: String) {
+        if (fileUrl !in state.schemaDismissedConfigs) {
+            state.schemaDismissedConfigs.add(fileUrl)
+        }
+    }
 
     companion object {
         fun getInstance(project: Project): TarantoolProjectSettings =
