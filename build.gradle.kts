@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.khovanskiy"
-version = "1.4.1"
+version = "1.4.2"
 
 // Шим JDBC-драйвера: единственный jar в дистрибутиве, который подключается
 // в Driver Files источника данных. Коннектор Tarantool шейдится внутрь,

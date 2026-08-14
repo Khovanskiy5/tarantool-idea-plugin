@@ -55,6 +55,19 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.4.2</b>
+    <ul>
+      <li>Bundled annotations audited against the live Tarantool 3.8 API
+          (29 modules): fixed three files that did not parse at all
+          (http.client, buffer, tarantool), typos hiding APIs (xlog.pairs,
+          fiber status "suspended", box.on_rollback), false missing-fields
+          on space:insert/replace/put table literals; added missing
+          declarations — fio.path, datetime.now/parse_date/TZ,
+          module-level fiber functions, box.func/lib/prepare/sequence,
+          net.box space operations, socket.from_fd/socketpair, the
+          tarantool module, and new digest/msgpack annotation files;
+          'datetime' and 'interval' added to field type names.</li>
+    </ul>
     <b>1.4.1</b>
     <ul>
       <li>SQL dialect: the shim driver now declares the Tarantool dialect,
