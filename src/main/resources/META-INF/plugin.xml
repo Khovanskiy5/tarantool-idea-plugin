@@ -55,6 +55,15 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.4.3</b>
+    <ul>
+      <li>Data editor: updating a datetime cell no longer fails with
+          "Type mismatch: can not convert string to datetime" — the JDBC
+          shim now decodes Tarantool datetime values as java.sql.Timestamp
+          (the canonical JDBC type for TIMESTAMP columns), so values
+          survive the IDE remote-JDBC bridge and round-trip back to the
+          server as native datetime, microseconds included.</li>
+    </ul>
     <b>1.4.2</b>
     <ul>
       <li>Bundled annotations audited against the live Tarantool 3.8 API
