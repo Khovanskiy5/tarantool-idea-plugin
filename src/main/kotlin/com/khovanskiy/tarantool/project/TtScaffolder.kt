@@ -4,6 +4,7 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -46,22 +47,12 @@ object TtScaffolder {
 
                 runTt(tt, dir, indicator, "init")
                 runTt(tt, dir, indicator, "create", template, "--name", appName, "--non-interactive")
-
-                // Шаблоны с rockspec (vshard_cluster) не запускаются без
-                // установки зависимостей: сборка выполняется сразу.
-                val appDir = dir.resolve(appName)
-                val hasRockspec = Files.isDirectory(appDir) &&
-                    Files.list(appDir).use { entries -> entries.anyMatch { it.fileName.toString().endsWith(".rockspec") } }
-                if (hasRockspec) {
-                    runTt(tt, dir, indicator, "build", appName)
-                }
+                buildIfHasRockspec(tt, dir, dir.resolve(appName), indicator)
 
                 removeEmptyServiceDirs(dir)
                 writeGitignoreIfAbsent(dir)
 
-                LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir)?.let {
-                    VfsUtil.markDirtyAndRefresh(false, true, true, it)
-                }
+                refresh(dir)
             }
 
             override fun onSuccess() {
@@ -82,6 +73,59 @@ object TtScaffolder {
         })
     }
 
+    /**
+     * Создаёт приложение из шаблона в уже открытом проекте: `tt create`
+     * в выбранном каталоге, при отсутствии tt-окружения — сначала `tt init`.
+     * Выполняется в фоне; по успеху открывается конфигурация приложения.
+     */
+    fun createApp(project: Project, targetDir: Path, template: String, appName: String) {
+        object : Task.Backgroundable(
+            project,
+            TarantoolBundle.message("newapp.progress", appName),
+            true,
+        ) {
+            override fun run(indicator: ProgressIndicator) {
+                val tt = TtCli.resolve(null)
+                // Повторный tt init интерактивно спрашивает про перезапись
+                // tt.yaml, поэтому окружение инициализируется только
+                // при отсутствии — tt ищет его от каталога вверх.
+                val initialized = !hasTtEnvironment(targetDir)
+                if (initialized) {
+                    runTt(tt, targetDir, indicator, "init")
+                }
+                runTt(tt, targetDir, indicator, "create", template, "--name", appName, "--non-interactive")
+                buildIfHasRockspec(tt, targetDir, targetDir.resolve(appName), indicator)
+
+                if (initialized) {
+                    removeEmptyServiceDirs(targetDir)
+                }
+                refresh(targetDir)
+            }
+
+            override fun onSuccess() {
+                notify(
+                    project,
+                    TarantoolBundle.message("newapp.done", appName, template),
+                    NotificationType.INFORMATION,
+                )
+                openAppConfig(project, targetDir.resolve(appName))
+            }
+
+            override fun onThrowable(error: Throwable) {
+                notify(
+                    project,
+                    TarantoolBundle.message("newapp.failed", appName) + "\n" + error.message,
+                    NotificationType.ERROR,
+                )
+            }
+        }.queue()
+    }
+
+    /** Есть ли окружение tt в каталоге или выше — так же ищет его сам tt. */
+    fun hasTtEnvironment(dir: Path): Boolean =
+        generateSequence(dir.toAbsolutePath().normalize()) { it.parent }
+            .any { Files.isRegularFile(it.resolve("tt.yaml")) || Files.isRegularFile(it.resolve("tt.yml")) }
+
     private fun runTt(tt: String, dir: Path, indicator: ProgressIndicator, vararg args: String) {
         indicator.text = "tt " + args.joinToString(" ")
         val commandLine = GeneralCommandLine(tt, *args)
@@ -99,6 +143,33 @@ object TtScaffolder {
     /** Имя приложения tt: латиница, цифры, подчёркивания и дефисы. */
     fun sanitizeAppName(raw: String): String =
         raw.replace(Regex("[^A-Za-z0-9_-]"), "_").ifBlank { "app" }
+
+    /**
+     * Шаблоны с rockspec (vshard_cluster) не запускаются без установки
+     * зависимостей: сборка выполняется сразу.
+     */
+    private fun buildIfHasRockspec(tt: String, envDir: Path, appDir: Path, indicator: ProgressIndicator) {
+        val hasRockspec = Files.isDirectory(appDir) &&
+            Files.list(appDir).use { entries -> entries.anyMatch { it.fileName.toString().endsWith(".rockspec") } }
+        if (hasRockspec) {
+            runTt(tt, envDir, indicator, "build", appDir.fileName.toString())
+        }
+    }
+
+    private fun refresh(dir: Path) {
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir)?.let {
+            VfsUtil.markDirtyAndRefresh(false, true, true, it)
+        }
+    }
+
+    /** Открывает конфигурацию созданного приложения в редакторе. */
+    private fun openAppConfig(project: Project, appDir: Path) {
+        val config = listOf("config.yml", "config.yaml", "init.lua")
+            .map(appDir::resolve)
+            .firstOrNull(Files::isRegularFile) ?: return
+        val file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(config) ?: return
+        FileEditorManager.getInstance(project).openFile(file, true)
+    }
 
     /**
      * Убирает пустые служебные каталоги, оставшиеся после tt init: bin,
