@@ -12,6 +12,7 @@ import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.sql.Timestamp
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -67,11 +68,11 @@ class MsgPackLiteExtTest {
         val payload = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
             .putLong(instant.epochSecond).array()
         val result = unpack(bytes(0xd7, 0x04) + payload)
-        assertEquals(OffsetDateTime.ofInstant(instant, ZoneOffset.UTC), result)
+        assertEquals(Timestamp.from(instant), result)
     }
 
     @Test
-    fun `datetime decodes from fixext16 with nanos and zone offset`() {
+    fun `datetime decodes from fixext16 with nanos ignoring zone offset`() {
         val seconds = Instant.parse("2026-01-01T00:00:00Z").epochSecond
         val payload = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)
             .putLong(seconds)
@@ -80,18 +81,16 @@ class MsgPackLiteExtTest {
             .putShort(0)
             .array()
         val result = unpack(bytes(0xd8, 0x04) + payload)
-        val expected = OffsetDateTime.ofInstant(
-            Instant.ofEpochSecond(seconds, 123_456_789),
-            ZoneOffset.ofHours(3),
-        )
-        assertEquals(expected, result)
+        // Смещение зоны не влияет на момент времени — декодер отдаёт
+        // Timestamp (Types.TIMESTAMP переживает мост remote-JDBC IDE).
+        assertEquals(Timestamp.from(Instant.ofEpochSecond(seconds, 123_456_789)), result)
     }
 
     @Test
     fun `datetime decodes negative epoch seconds`() {
         val payload = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(-1).array()
         val result = unpack(bytes(0xd7, 0x04) + payload)
-        assertEquals(OffsetDateTime.parse("1969-12-31T23:59:59Z"), result)
+        assertEquals(Timestamp.from(Instant.parse("1969-12-31T23:59:59Z")), result)
     }
 
     // --- decimal: ext8, тип 1, msgpack-scale + packed BCD ---
@@ -234,19 +233,19 @@ class MsgPackLiteExtTest {
         val value = OffsetDateTime.parse("2026-08-13T10:00:00Z")
         val packed = pack(value)
         assertEquals(0xd7.toByte(), packed[0], "секунды без зоны и наносекунд — fixext8")
-        assertEquals(value, unpack(packed))
+        assertEquals(Timestamp.from(value.toInstant()), unpack(packed))
     }
 
     @Test
-    fun `datetime round-trip with nanos and offset`() {
+    fun `datetime round-trip preserves instant with nanos and offset`() {
         val value = OffsetDateTime.parse("2026-08-13T10:00:00.123456789+03:00")
-        assertEquals(value, unpack(pack(value)))
+        assertEquals(Timestamp.from(value.toInstant()), unpack(pack(value)))
     }
 
     @Test
     fun `instant packs as datetime`() {
         val value = Instant.parse("2026-08-13T10:00:00.5Z")
-        assertEquals(OffsetDateTime.ofInstant(value, ZoneOffset.UTC), unpack(pack(value)))
+        assertEquals(Timestamp.from(value), unpack(pack(value)))
     }
 
     @Test
@@ -272,7 +271,7 @@ class MsgPackLiteExtTest {
         val packed = out.toByteArray()
         assertEquals(0xd8.toByte(), packed[0], "fixext16: наносекунды ненулевые")
         assertEquals(0x04.toByte(), packed[1], "тип расширения — datetime")
-        assertEquals(OffsetDateTime.ofInstant(instant, ZoneOffset.UTC), unpack(packed))
+        assertEquals(java.sql.Timestamp.from(instant), unpack(packed))
     }
 
     @Test

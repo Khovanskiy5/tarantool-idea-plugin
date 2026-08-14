@@ -520,29 +520,33 @@ public class MsgPackLite {
     /**
      * MP_DATETIME: little-endian; 8 байт — секунды эпохи, либо 16 байт —
      * секунды + nsec (int32) + смещение зоны в минутах (int16) + tzindex (int16).
+     *
+     * Возвращается java.sql.Timestamp, а не OffsetDateTime: колонки
+     * datetime объявлены как Types.TIMESTAMP, а редактор данных IDE
+     * гоняет значения через мост remote-JDBC-процесса, где чуждый JDBC
+     * тип деградирует в строку — и UPDATE ... WHERE created_at = ?
+     * падал на сервере («can not convert string to datetime»).
+     * Timestamp мост переживает, и упаковка Timestamp -> ext уже есть.
+     * Смещение зоны (и tzindex) при этом теряется только в отображении:
+     * момент времени сохраняется, а равенство datetime Tarantool
+     * сравнивает по физическому времени, без учёта tzoffset.
      */
-    protected OffsetDateTime decodeDatetime(byte[] payload) throws IOException {
+    protected Timestamp decodeDatetime(byte[] payload) throws IOException {
         if (payload.length != 8 && payload.length != 16) {
             throw new IOException("datetime payload must be 8 or 16 bytes, got " + payload.length);
         }
         ByteBuffer buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
         long seconds = buffer.getLong();
         int nanos = 0;
-        int tzMinutes = 0;
         if (payload.length == 16) {
             nanos = buffer.getInt();
-            tzMinutes = buffer.getShort();
-            // tzindex пропускается: восстановить имя зоны без таблицы
-            // Olson-индексов Tarantool нельзя, смещения достаточно
         }
         if (nanos < 0 || nanos >= 1_000_000_000) {
             // Instant.ofEpochSecond молча нормализовал бы такой nsec,
             // сдвинув момент времени — честнее сырые байты
             throw new IOException("datetime nsec out of range: " + nanos);
         }
-        return OffsetDateTime.ofInstant(
-            Instant.ofEpochSecond(seconds, nanos),
-            ZoneOffset.ofTotalSeconds(tzMinutes * 60));
+        return Timestamp.from(Instant.ofEpochSecond(seconds, nanos));
     }
 
     /**
