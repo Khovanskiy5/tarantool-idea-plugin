@@ -95,7 +95,10 @@ class TarantoolDataSourceStartup : ProjectActivity {
         (driver as? DatabaseDriverImpl)?.apply {
             setName("Tarantool (shim)")
             setDriverClass(SHIM_DRIVER_CLASS)
-            setSqlDialect("GenericSQL")
+            // Диалект драйвера обязан совпадать с диалектом forcedDbms,
+            // иначе консоль источника показывает баннер «Inconsistent
+            // language» с рекомендацией сменить Generic SQL на Tarantool.
+            setSqlDialect("TarantoolSQL")
             if (artifacts.isNotEmpty()) {
                 // Коннектор шейдится в jar шима вместе с форком MsgPackLite
                 // (поддержка ext-типов); артефакт с Maven Central в classpath
