@@ -2,6 +2,7 @@ package com.khovanskiy.tarantool.stubs
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
+import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -19,12 +20,13 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 
 /**
- * Генерирует описания типов API Tarantool для языкового сервера EmmyLua.
+ * Устанавливает описания типов API Tarantool для языкового сервера EmmyLua.
  *
- * Встроенный скрипт снимает API интроспекцией с установленного интерпретатора
- * и складывает результат в .types/tarantool/generated относительно корня
- * проекта. Каталог достаточно подключить в workspace.library файла
- * .emmyrc.json, чтобы получить автодополнение по box, fiber и другим модулям.
+ * Два слоя: встроенные курированные аннотации (bundled — включая vshard,
+ * работают без установленного tarantool) и генерация интроспекцией
+ * с установленного интерпретатора (generated — модули, не покрытые
+ * бандлом, точно под версию сервера). Ручные уточнения пользователя живут
+ * в manual и имеют приоритет над генерацией.
  */
 class GenerateTarantoolStubsAction : AnAction(), DumbAware {
 
@@ -42,22 +44,43 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
             override fun run(indicator: ProgressIndicator) {
                 generate(project, basePath, indicator)
             }
+
+            // Битый путь к интерпретатору в настройках или недоступный temp
+            // бросают исключение до запуска процесса — это ошибка окружения,
+            // а не плагина: уведомление вместо красного «IDE internal error».
+            override fun onThrowable(error: Throwable) {
+                notify(
+                    project,
+                    TarantoolBundle.message("notification.stubs.failure.title") + "\n" + error.message,
+                    NotificationType.ERROR,
+                )
+            }
         }.queue()
     }
 
     private fun generate(project: Project, basePath: String, indicator: ProgressIndicator) {
-        // Ручные типы (сигнатуры спейсов, файберов, net.box) раскладываются
-        // до запуска генератора: он исключает перекрытые вручную функции.
-        // Существующие файлы не перезаписываются — их мог править пользователь.
-        // Делается до проверки интерпретатора: миграции легаси-имён он не нужен.
-        val leftovers = extractManualTypes(basePath)
-        ManualTypesMigration.notifyLeftovers(project, leftovers)
+        // Каталог ручных типов создаётся пустым: это место для правок
+        // пользователя. Легаси-файлы прежних версий переименовываются.
+        val manualDir = File(basePath, ".types/tarantool/manual")
+        manualDir.mkdirs()
+        ManualTypesMigration.notifyLeftovers(project, ManualTypesMigration.migrate(manualDir))
+
+        // Бандл курированных аннотаций перезаписывается всегда: каталог
+        // принадлежит плагину, как и generated.
+        BundledAnnotations.extract(basePath, BundledAnnotations.installedPluginVersion())
 
         // resolve возвращает абсолютный путь, когда интерпретатор найден;
         // голое имя означает, что ни PATH, ни типовые каталоги не помогли.
+        // Без интерпретатора работа не отменяется: бандл уже развёрнут,
+        // пропущена только интроспекция.
         val interpreter = TarantoolInterpreter.resolve(null)
         if (!File(interpreter).isAbsolute) {
-            notify(project, TarantoolBundle.message("notification.stubs.no.interpreter"), NotificationType.ERROR)
+            finish(
+                project,
+                basePath,
+                TarantoolBundle.message("notification.stubs.bundled.only"),
+                NotificationType.WARNING,
+            )
             return
         }
 
@@ -90,85 +113,54 @@ class GenerateTarantoolStubsAction : AnAction(), DumbAware {
                 NotificationType.ERROR,
             )
 
-            else -> {
-                val emmyrcCreated = writeEmmyrcIfAbsent(basePath)
-                refreshTypesDirectory(basePath)
-                val extra = if (emmyrcCreated) {
-                    "\n" + TarantoolBundle.message("notification.stubs.emmyrc.created")
-                } else {
-                    ""
-                }
-                notify(
-                    project,
-                    TarantoolBundle.message("notification.stubs.success.title") + "\n" +
-                        output.stdout.trim() + extra,
-                    NotificationType.INFORMATION,
+            else -> finish(
+                project,
+                basePath,
+                TarantoolBundle.message("notification.stubs.success.title") + "\n" + output.stdout.trim(),
+                NotificationType.INFORMATION,
+            )
+        }
+    }
+
+    /**
+     * Завершение с обновлением VFS и подключением каталогов типов
+     * к EmmyLua2: отсутствующий .emmyrc.json создаётся, существующий
+     * не трогается — если в нём не хватает каталогов, предлагается
+     * кнопка (файл принадлежит проекту).
+     */
+    private fun finish(project: Project, basePath: String, message: String, type: NotificationType) {
+        refreshTypesDirectory(basePath)
+
+        var text = message
+        var action: NotificationAction? = null
+        val emmyrc = File(basePath, Emmyrc.FILE_NAME)
+        if (!emmyrc.exists()) {
+            Emmyrc.writeDefault(emmyrc)
+            LocalFileSystem.getInstance().refreshAndFindFileByIoFile(emmyrc)
+            text += "\n" + TarantoolBundle.message("notification.stubs.emmyrc.created")
+        } else {
+            val missing = Emmyrc.missingLibraries(emmyrc)
+            if (missing.isNotEmpty()) {
+                text += "\n" + TarantoolBundle.message(
+                    "notification.stubs.emmyrc.missing",
+                    missing.joinToString(", "),
                 )
+                action = NotificationAction.createSimpleExpiring(
+                    TarantoolBundle.message("notification.stubs.emmyrc.patch"),
+                ) {
+                    // Список пересчитывается на момент клика: файл могли
+                    // дописать вручную или кнопкой другого уведомления.
+                    Emmyrc.addLibraries(emmyrc, Emmyrc.missingLibraries(emmyrc))
+                    LocalFileSystem.getInstance().refreshAndFindFileByIoFile(emmyrc)?.refresh(true, false)
+                }
             }
         }
-    }
 
-    /**
-     * Раскладывает ручные описания типов из ресурсов плагина: сигнатуры
-     * спейсов, индексов, кортежей, файберов и net.box, которые интроспекция
-     * снять не может. Пользовательские правки сохраняются: существующие
-     * файлы не перезаписываются.
-     */
-    /**
-     * Возвращает легаси-файлы, которые миграции переименовать не удалось.
-     * Их новые имена пропускаются при извлечении ресурсов: чистая копия
-     * рядом с легаси-файлом навсегда заблокировала бы повторную миграцию.
-     */
-    private fun extractManualTypes(basePath: String): List<String> {
-        val manualDir = File(basePath, ".types/tarantool/manual")
-        manualDir.mkdirs()
-        val leftovers = ManualTypesMigration.migrate(manualDir)
-        val blocked = leftovers.mapNotNull { ManualTypesMigration.targetFor(it) }.toSet()
-        for (name in ManualTypesMigration.MANUAL_TYPE_FILES) {
-            val target = File(manualDir, name)
-            if (name in blocked || target.exists()) {
-                continue
-            }
-            javaClass.getResourceAsStream("/stubs/manual/$name")?.use { input ->
-                target.outputStream().use { input.copyTo(it) }
-            }
-        }
-        return leftovers
-    }
-
-    /**
-     * Языковой сервер EmmyLua2 подключает каталоги типов через
-     * workspace.library в .emmyrc.json. Без него сгенерированные описания
-     * не дают автодополнения, поэтому минимальный конфиг создаётся
-     * автоматически. Существующий файл не трогаем: он принадлежит проекту.
-     */
-    private fun writeEmmyrcIfAbsent(basePath: String): Boolean {
-        val emmyrc = File(basePath, ".emmyrc.json")
-        if (emmyrc.exists()) {
-            return false
-        }
-        emmyrc.writeText(
-            """
-            {
-              "${'$'}schema": "https://raw.githubusercontent.com/EmmyLuaLs/emmylua-analyzer-rust/refs/heads/main/crates/emmylua_code_analysis/resources/schema.json",
-              "runtime": {
-                "version": "LuaJIT"
-              },
-              "workspace": {
-                "library": [
-                  ".types/tarantool/manual",
-                  ".types/tarantool/generated"
-                ],
-                "ignoreDir": [
-                  "var",
-                  ".idea"
-                ]
-              }
-            }
-
-            """.trimIndent(),
-        )
-        return true
+        val notification = NotificationGroupManager.getInstance()
+            .getNotificationGroup("Tarantool")
+            .createNotification(text, type)
+        action?.let(notification::addAction)
+        notification.notify(project)
     }
 
     /** Обновляет снимок каталога типов в VFS, чтобы IDE увидела новые файлы. */

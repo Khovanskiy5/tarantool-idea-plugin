@@ -1,8 +1,9 @@
 --[[
 Генератор EmmyLua/LuaCATS-заглушек (stubs) для API Tarantool.
 
-Готовых актуальных описаний типов для Tarantool 3.x не существует, поэтому
-описания снимаются интроспекцией с живого интерпретатора: обходятся таблицы
+Дополняет встроенные курированные аннотации (.types/tarantool/bundled):
+модули, покрытые бандлом, пропускаются, а остальные снимаются интроспекцией
+с живого интерпретатора — точно под установленную версию: обходятся таблицы
 встроенных модулей, для Lua-функций из отладочной информации достаются имена
 параметров, для таблиц с метаметодом __call добавляется ---@overload.
 
@@ -16,6 +17,7 @@
 
 local OUT_DIR = '.types/tarantool/generated'
 local MANUAL_DIR = '.types/tarantool/manual'
+local BUNDLED_LIBRARY_DIR = '.types/tarantool/bundled/Library'
 local MAX_DEPTH = 3
 
 -- Модули, попадающие в выгрузку. `global` — модуль виден как глобальная
@@ -202,6 +204,76 @@ local function collect_manual_overrides()
     return overrides
 end
 
+--- Собирает имена модулей, покрытых встроенными курированными аннотациями
+--- (.types/tarantool/bundled). Такие модули из генерации исключаются:
+--- интроспекция дала бы плоские сигнатуры без типов, и при слиянии классов
+--- они засоряли бы курированные описания дублями с типом any.
+---
+--- Имя модуля восстанавливается из раскладки каталога: `fiber.lua` → fiber,
+--- `net/box.lua` → net.box. Подкаталоги вида box/ описывают подсистемы
+--- модуля верхнего уровня и отдельными именами не считаются, но добавление
+--- box.schema в набор безвредно: в списке MODULES таких имён нет.
+local function collect_bundled_modules()
+    local bundled = {}
+    local fio = require('fio')
+    if not fio.path.is_dir(BUNDLED_LIBRARY_DIR) then
+        return bundled
+    end
+    for _, entry in ipairs(fio.listdir(BUNDLED_LIBRARY_DIR)) do
+        local top = entry:match('^(.+)%.lua$')
+        if top then
+            bundled[top] = true
+        elseif fio.path.is_dir(BUNDLED_LIBRARY_DIR .. '/' .. entry) then
+            for _, inner in ipairs(fio.listdir(BUNDLED_LIBRARY_DIR .. '/' .. entry)) do
+                local name = inner:match('^(.+)%.lua$')
+                if name then
+                    bundled[entry .. '.' .. name] = true
+                end
+            end
+        end
+    end
+    return bundled
+end
+
+--- Собирает объявления функций стандартных библиотек из файлов бандла.
+--- Расширения Tarantool описаны не только в одноимённых файлах
+--- (string.lua), но и, например, в tarantool.lua (table.deepcopy,
+--- table.new) — пропуск по имени файла их не покрывает. Возвращает набор
+--- вида {['table.deepcopy'] = true}.
+local function collect_bundled_stdlib()
+    local found = {}
+    local fio = require('fio')
+    if not fio.path.is_dir(BUNDLED_LIBRARY_DIR) then
+        return found
+    end
+    local function scan_file(path)
+        local fh = io.open(path, 'r')
+        if not fh then
+            return
+        end
+        local content = fh:read('*a')
+        fh:close()
+        for lib, name in content:gmatch('function%s+([%w_]+)%.([%w_]+)%s*%(') do
+            if STDLIB[lib] then
+                found[lib .. '.' .. name] = true
+            end
+        end
+    end
+    for _, entry in ipairs(fio.listdir(BUNDLED_LIBRARY_DIR)) do
+        local full = BUNDLED_LIBRARY_DIR .. '/' .. entry
+        if entry:match('%.lua$') then
+            scan_file(full)
+        elseif fio.path.is_dir(full) then
+            for _, inner in ipairs(fio.listdir(full)) do
+                if inner:match('%.lua$') then
+                    scan_file(full .. '/' .. inner)
+                end
+            end
+        end
+    end
+    return found
+end
+
 local Emitter = {}
 Emitter.__index = Emitter
 
@@ -331,7 +403,7 @@ end
 --- Расширения стандартной библиотеки описываются дописыванием функций
 --- прямо в глобальные таблицы: объявлять для них класс нельзя — это
 --- перекрыло бы встроенные определения анализатора.
-local function render_stdlib_extensions()
+local function render_stdlib_extensions(bundled, bundled_stdlib)
     local out = {
         '---@meta',
         '',
@@ -340,23 +412,28 @@ local function render_stdlib_extensions()
         '',
     }
     for _, lib_name in ipairs({ 'string', 'table', 'os', 'math' }) do
-        local known = {}
-        for _, name in ipairs(STDLIB[lib_name]) do
-            known[name] = true
-        end
-        local added = {}
-        for _, key in ipairs(sorted_keys(_G[lib_name])) do
-            if not known[key] and type(_G[lib_name][key]) == 'function' and is_plain_name(key) then
-                added[#added + 1] = ('---@return any ...\nfunction %s.%s(%s) end')
-                    :format(lib_name, key, table.concat(describe_params(_G[lib_name][key]), ', '))
+        -- Расширения библиотек, покрытых бандлом (string.lua описывает
+        -- и добавки Tarantool), пропускаются — иначе дубли в completion.
+        if not bundled[lib_name] then
+            local known = {}
+            for _, name in ipairs(STDLIB[lib_name]) do
+                known[name] = true
             end
-        end
-        if #added > 0 then
-            out[#out + 1] = ('-- %s'):format(lib_name)
-            for _, line in ipairs(added) do
-                out[#out + 1] = line
+            local added = {}
+            for _, key in ipairs(sorted_keys(_G[lib_name])) do
+                if not known[key] and not bundled_stdlib[lib_name .. '.' .. key]
+                    and type(_G[lib_name][key]) == 'function' and is_plain_name(key) then
+                    added[#added + 1] = ('---@return any ...\nfunction %s.%s(%s) end')
+                        :format(lib_name, key, table.concat(describe_params(_G[lib_name][key]), ', '))
+                end
             end
-            out[#out + 1] = ''
+            if #added > 0 then
+                out[#out + 1] = ('-- %s'):format(lib_name)
+                for _, line in ipairs(added) do
+                    out[#out + 1] = line
+                end
+                out[#out + 1] = ''
+            end
         end
     end
     return table.concat(out, '\n')
@@ -385,25 +462,35 @@ local function main()
     os.execute('mkdir -p ' .. OUT_DIR)
 
     local overrides = collect_manual_overrides()
+    local bundled = collect_bundled_modules()
 
-    local generated = 0
+    local generated, covered = 0, 0
     for _, module in ipairs(MODULES) do
-        local ok, value = pcall(require, module.name)
-        if ok and type(value) == 'table' then
-            local emitter = Emitter.new(module.name, overrides)
-            emitter:walk(value, module.name, 1)
-            local file = OUT_DIR .. '/' .. to_identifier(module.name) .. '.lua'
-            write_file(file, emitter:render(module.kind))
-            generated = generated + 1
+        if bundled[module.name] then
+            covered = covered + 1
         else
-            io.stderr:write(('пропущен модуль %s\n'):format(module.name))
+            local ok, value = pcall(require, module.name)
+            if ok and type(value) == 'table' then
+                local emitter = Emitter.new(module.name, overrides)
+                emitter:walk(value, module.name, 1)
+                local file = OUT_DIR .. '/' .. to_identifier(module.name) .. '.lua'
+                write_file(file, emitter:render(module.kind))
+                generated = generated + 1
+            else
+                io.stderr:write(('пропущен модуль %s\n'):format(module.name))
+            end
         end
     end
 
-    write_file(OUT_DIR .. '/stdlib_ext.lua', render_stdlib_extensions())
+    write_file(OUT_DIR .. '/stdlib_ext.lua', render_stdlib_extensions(bundled, collect_bundled_stdlib()))
+
+    -- Маркер версии интерпретатора: стартовая диагностика сверяет его
+    -- с установленным tarantool и предлагает перегенерацию при смене версии.
+    write_file(OUT_DIR .. '/.tarantool-version', _TARANTOOL .. '\n')
 
     os.execute('rm -rf ' .. sandbox)
-    print(('сгенерировано модулей: %d -> %s'):format(generated, OUT_DIR))
+    print(('сгенерировано модулей: %d, покрыто встроенными аннотациями: %d -> %s')
+        :format(generated, covered, OUT_DIR))
     os.exit(0)
 end
 

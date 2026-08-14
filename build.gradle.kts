@@ -54,9 +54,28 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // В main Gson приходит с платформой; тестам нужен свой экземпляр.
+    testImplementation("com.google.code.gson:gson:2.11.0")
 
     "shimCompileOnly"("org.tarantool:connector:1.9.4")
     shimShade("org.tarantool:connector:1.9.4")
+}
+
+// Курированные EmmyLua-аннотации (annotations/tarantool, копия набора
+// из tarantool-vscode) упаковываются в один zip-ресурс: плагин разворачивает
+// его в .types/tarantool/bundled/ проекта. Zip вместо россыпи файлов —
+// чтобы не вести в коде список из полусотни имён: содержимое перечисляет
+// сам архив.
+val annotationsZip = tasks.register<Zip>("annotationsZip") {
+    archiveFileName = "tarantool-annotations.zip"
+    destinationDirectory = layout.buildDirectory.dir("tmp/annotations")
+    from("annotations/tarantool")
+}
+
+tasks.processResources {
+    from(annotationsZip) {
+        into("stubs")
+    }
 }
 
 val shimJar = tasks.register<Jar>("shimJar") {
