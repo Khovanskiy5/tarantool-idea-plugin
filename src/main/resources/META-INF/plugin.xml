@@ -34,12 +34,20 @@
       <li><b>Тесты</b>: раннер luatest с деревом результатов
           из TAP-вывода.</li>
       <li><b>Новый проект</b>: мастер на базе шаблонов tt create
-          (single_instance, cluster, vshard_cluster, config_storage).</li>
-      <li><b>Конфигурация</b>: автодополнение и валидация config.yaml
-          (официальная JSON Schema Tarantool 3) и tt.yaml.</li>
-      <li><b>Типы для EmmyLua2</b>: генерация описаний API интроспекцией
-          установленного Tarantool плюс уточнённые вручную сигнатуры —
-          автодополнение по box, fiber, net.box.</li>
+          (single_instance, cluster, vshard_cluster, config_storage);
+          в открытом проекте — «Приложение Tarantool из шаблона»
+          в меню New.</li>
+      <li><b>Конфигурация</b>: автодополнение и валидация config.yaml,
+          cluster.yml и source.yml (официальная JSON Schema Tarantool 3)
+          и tt.yaml; для config.yaml вне tt-окружения — баннер
+          «включить схему?».</li>
+      <li><b>Типы для EmmyLua2</b>: встроенные курированные аннотации
+          (все модули плюс vshard, без установленного tarantool)
+          и генерация интроспекцией для непокрытых модулей —
+          автодополнение по box, fiber, net.box, vshard.</li>
+      <li><b>Диагностика окружения</b>: проверка EmmyLua2, путей
+          к tarantool/tt и свежести типов при открытии tt-проекта —
+          одна сводка с кнопками-исправлениями.</li>
       <li><b>Разное</b>: просмотр .snap/.xlog/.vylog через tt cat,
           проверка синтаксиса tt check, live-шаблоны (tspace, tonce,
           tfiber, tatomic, tnetbox, tlog, twatch).</li>
@@ -47,6 +55,28 @@
   ]]></description>
 
   <change-notes><![CDATA[
+    <b>1.4.0</b>
+    <ul>
+      <li>Bundled curated EmmyLua annotations (from the official
+          tarantool-vscode extension, BSD-2): every builtin module with
+          hand-tuned signatures plus the vshard rock. Deployed to
+          .types/tarantool/bundled automatically when a tt project
+          (tt.yaml in the root) is opened — completion works without
+          a local tarantool binary; introspection now only generates
+          modules the bundle does not cover.</li>
+      <li>Environment health check on tt project open: EmmyLua2 plugin
+          presence and version, tarantool/tt binaries (local mode only),
+          stale generated types (tarantool version marker), type
+          directories missing from .emmyrc.json — one summary
+          notification with fix actions.</li>
+      <li>Cluster config schema now also applies to cluster.yml and
+          source.yml anywhere; a config.yaml outside a tt environment gets
+          an editor banner offering to enable the schema (heuristic:
+          top-level keys like groups/iproto/credentials).</li>
+      <li>New action: Tarantool application from a tt template in an already
+          opened project (context menu → New); runs tt init first when the
+          environment is missing.</li>
+    </ul>
     <b>1.3.0</b>
     <ul>
       <li>JDBC driver: honest column types in DatabaseMetaData.getColumns.
@@ -125,7 +155,7 @@
     <applicationConfigurable parentId="tools" instance="com.khovanskiy.tarantool.settings.TarantoolSettingsConfigurable" id="com.khovanskiy.tarantool.settings" displayName="Tarantool" />
     <projectConfigurable parentId="com.khovanskiy.tarantool.settings" instance="com.khovanskiy.tarantool.settings.TarantoolProjectConfigurable" id="com.khovanskiy.tarantool.settings.project" key="settings.project.display.name" bundle="messages.TarantoolBundle" />
     <toolWindow id="Tarantool" anchor="bottom" icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool" factoryClass="com.khovanskiy.tarantool.toolwindow.TarantoolToolWindowFactory" />
-    <postStartupActivity implementation="com.khovanskiy.tarantool.stubs.TarantoolTypesStartup" />
+    <postStartupActivity implementation="com.khovanskiy.tarantool.health.TarantoolHealthCheck" />
   </extensions>
 
   <actions>
@@ -147,6 +177,11 @@
             icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
       <add-to-group group-id="EditorPopupMenu" anchor="last" />
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
+    </action>
+    <action id="Tarantool.NewApp"
+            class="com.khovanskiy.tarantool.project.NewTtApplicationAction"
+            icon="com.khovanskiy.tarantool.TarantoolIcons.Tarantool">
+      <add-to-group group-id="NewGroup" anchor="last" />
     </action>
   </actions>
 </idea-plugin>

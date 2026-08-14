@@ -81,15 +81,18 @@ src/main/kotlin/com/khovanskiy/tarantool/
 ├── lua/                      модуль интеграции с EmmyLua2
 │   └── TarantoolLuaRunLineMarkerContributor.kt  гуттер ▶ на .lua
 ├── schema/                   JSON-схемы для YAML
-│   └── TarantoolConfigSchemaProviderFactory.kt   config.yaml + tt.yaml
+│   ├── TarantoolConfigSchemaProviderFactory.kt   config.yaml/cluster.yml/source.yml + tt.yaml
+│   ├── TarantoolConfigHeuristics.kt      «похоже на кластерную конфигурацию» (юнит-тесты)
+│   └── TarantoolConfigNotificationProvider.kt    баннер «включить схему?» для config.yaml
 ├── wal/                      файлы данных
 │   ├── TarantoolWalFileType.kt            тип .snap/.xlog/.vylog
 │   ├── WalFileEditorProvider.kt           регистрация редактора
 │   └── WalPreviewFileEditor.kt            read-only viewer поверх tt cat
-├── project/                  мастер нового проекта
+├── project/                  мастер нового проекта и приложения
 │   ├── TarantoolNewProjectWizard.kt       пункт в IDEA (newProjectWizard.generator)
 │   ├── TarantoolProjectGenerator.kt       пункт в PyCharm/WebStorm (directoryProjectGenerator)
-│   └── TtScaffolder.kt                    общий запуск tt init/tt create
+│   ├── NewTtApplicationAction.kt          «Приложение из шаблона…» в меню New открытого проекта
+│   └── TtScaffolder.kt                    общий запуск tt init/tt create (новый проект и createApp)
 ├── templates/
 │   └── TarantoolLuaTemplateContext.kt     контекст live-шаблонов (.lua)
 ├── debugger/
@@ -97,18 +100,30 @@ src/main/kotlin/com/khovanskiy/tarantool/
 ├── settings/
 │   ├── TarantoolSettings.kt               PersistentStateComponent (пути)
 │   ├── TarantoolSettingsConfigurable.kt   страница Settings → Tools → Tarantool
-│   ├── TarantoolProjectSettings.kt        проектный режим запуска (.idea/tarantool.xml)
+│   ├── TarantoolProjectSettings.kt        режим запуска + ответы на баннер схемы (.idea/tarantool.xml)
 │   └── TarantoolProjectConfigurable.kt    подстраница «Режим запуска»
+├── health/
+│   ├── TarantoolHealthCheck.kt            стартовая диагностика + авторазворачивание бандла
+│   └── VersionNumbers.kt                  числовое сравнение версий (юнит-тесты)
 └── stubs/
-    └── GenerateTarantoolStubsAction.kt    генерация типов для EmmyLua2
+    ├── GenerateTarantoolStubsAction.kt    установка типов: бандл + генерация интроспекцией
+    ├── BundledAnnotations.kt              разворачивание zip курированных аннотаций (юнит-тесты)
+    ├── Emmyrc.kt                          создание/дописывание .emmyrc.json (юнит-тесты)
+    └── ManualTypesMigration.kt            миграция легаси-имён ручных типов
+
+annotations/tarantool/             курированные аннотации (копия из tarantool-vscode,
+                                   BSD-2; обновление — см. annotations/README.md);
+                                   сборка пакует их в stubs/tarantool-annotations.zip
 
 src/main/resources/
 ├── META-INF/plugin.xml            манифест, регистрация расширений
-├── META-INF/tarantool-json.xml    часть, зависящая от JSON-модуля (схемы)
+├── com.khovanskiy.tarantool.*.xml дескрипторы content-модулей (json, sql, lua, terminal)
 ├── schemas/tarantool-config.json  схема config.yaml (из config:jsonschema())
 ├── schemas/tt-config.json         схема tt.yaml (по исходникам tt)
 ├── liveTemplates/Tarantool.xml    live-шаблоны
 ├── stubs/gen_stubs.lua            генератор типов (запускается tarantool'ом)
+├── stubs/manual/                  бывшие ручные стабы: больше не раскладываются,
+│                                  нужны health check'у как эталон для «нетронутых копий»
 ├── debug/                         emmy_debug.lua и конфигурация attach debugger
 └── messages/TarantoolBundle.properties
 ```
@@ -127,10 +142,11 @@ src/main/resources/
 | `applicationConfigurable` | `TarantoolSettingsConfigurable` | страница настроек (пути) |
 | `projectConfigurable` | `TarantoolProjectConfigurable` | режим запуска проекта |
 | `toolWindow` | `TarantoolToolWindowFactory` | панель инстансов |
-| `postStartupActivity` ×2 | `TarantoolTypesStartup`, `TarantoolDataSourceStartup`** | предложение типов; автонастройка драйвера и источников данных |
+| `postStartupActivity` ×2 | `TarantoolHealthCheck`, `TarantoolDataSourceStartup`** | диагностика окружения и разворачивание бандла типов; автонастройка драйвера и источников данных |
 | `notificationGroup` | — | всплывающие уведомления |
 | `runLineMarkerContributor`*** | `TarantoolLuaRunLineMarkerContributor` | гуттер ▶ на .lua |
 | `JavaScript.JsonSchema.ProviderFactory`* | `TarantoolConfigSchemaProviderFactory` | схемы YAML |
+| `editorNotificationProvider`* | `TarantoolConfigNotificationProvider` | баннер «включить схему?» над config.yaml |
 | `com.intellij.database.dbms`** | `TarantoolDbms` | СУБД Tarantool в реестре Database |
 | `com.intellij.sql.dialect`** | `TarantoolSqlDialect` | SQL-диалект Tarantool |
 
@@ -209,10 +225,18 @@ tt.yaml написана вручную по структуре `CliOpts` (cli/c
 Обновление при выходе новых версий: перегенерировать/сверить и заменить
 файл в `schemas/`.
 
-**Типы для EmmyLua2 — генерация, а не поставка.** API снимается
-интроспекцией с интерпретатора пользователя, поэтому описания всегда
-соответствуют установленной версии Tarantool; плагин не обязан выпускать
-релиз под каждую версию сервера.
+**Типы для EmmyLua2 — бандл плюс генерация.** База — курированные
+аннотации из tarantool-vscode (annotations/tarantool, включая vshard):
+богатые сигнатуры с документацией, работают без установленного
+tarantool и разворачиваются в `.types/tarantool/bundled` автоматически.
+Генерация интроспекцией дополняет бандл: gen_stubs.lua пропускает
+покрытые им модули (список восстанавливается из раскладки каталога
+Library) и снимает остальные точно под установленную версию сервера.
+Ручные дефолты (stubs/manual) больше не раскладываются — их классы
+сливались бы с курированными и дублировали completion; каталог manual
+остался местом для правок пользователя, они имеют приоритет над
+генерацией. .emmyrc.json создаётся только при отсутствии; существующий
+файл принадлежит проекту и дописывается только кнопкой в уведомлении.
 
 **Режимы запуска — префикс, а не свой транспорт.** Docker-режим — это
 тот же tt, исполненный через префикс (`docker compose exec <сервис>`),
@@ -235,7 +259,17 @@ tt.yaml написана вручную по структуре `CliOpts` (cli/c
 в `TarantoolCommandLineState`.
 
 **…новый модуль в генератор типов** — список `MODULES`
-в `resources/stubs/gen_stubs.lua`.
+в `resources/stubs/gen_stubs.lua`; модуль генерируется, только если
+не покрыт бандлом (файл с его именем в bundled/Library).
+
+**…свежий бандл аннотаций** — процедура в `annotations/README.md`:
+скопировать Library/Rocks/LICENSE из tarantool-vscode и зафиксировать
+коммит источника; пользователи получат обновление автоматически
+по маркеру `.bundle-version` (сверяется с версией плагина).
+
+**…проверку в стартовую диагностику** — список пунктов собирается
+в `TarantoolHealthCheck.execute`: добавить `Item` с текстом и
+fix-действием; сводка показывается только при непустом списке.
 
 ## Релиз
 
