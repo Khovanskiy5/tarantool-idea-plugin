@@ -48,12 +48,17 @@ dependencies {
         bundledPlugin("com.intellij.database")
         // Открытие консоли инстанса во встроенном Терминале.
         bundledPlugin("org.jetbrains.plugins.terminal")
+        // PSI/подсветка SQL-диалекта проверяются фикстурами платформы.
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
     testImplementation(kotlin("stdlib"))
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // Фикстуры платформы (BasePlatformTestCase) — JUnit3-стиль.
+    testImplementation("junit:junit:4.13.2")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
     // В main Gson приходит с платформой; тестам нужен свой экземпляр.
     testImplementation("com.google.code.gson:gson:2.11.0")
 

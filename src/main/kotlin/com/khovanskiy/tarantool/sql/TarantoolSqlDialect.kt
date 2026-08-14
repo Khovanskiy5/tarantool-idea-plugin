@@ -3,9 +3,12 @@ package com.khovanskiy.tarantool.sql
 import com.intellij.database.Dbms
 import com.intellij.database.model.ObjectKind
 import com.intellij.psi.tree.IElementType
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.dialects.base.SqlLanguageDialectBase
 import com.intellij.sql.dialects.base.TokensHelper
 import com.intellij.sql.psi.SqlReferenceExpression
+import com.intellij.sql.psi.SqlSetStatement
+import com.intellij.sql.psi.SqlStatement
 
 /**
  * SQL-диалект Tarantool.
@@ -41,7 +44,26 @@ class TarantoolSqlDialect private constructor() : SqlLanguageDialectBase("Tarant
         if (expression != null && expression.text.equals("SEQSCAN", ignoreCase = true)) {
             return false
         }
+        if (expression != null && isInsideSetStatement(expression)) {
+            return false
+        }
         return super.shallResolve(expression, kind)
+    }
+
+    /**
+     * `SET SESSION "имя" = значение` парсер SQL-92 не знает (после SESSION
+     * он ждёт AUTHORIZATION), поэтому и имя настройки, и незакавыченное
+     * значение (`= memtx`) остаются «колонками» внутри SET-статемента —
+     * без подавления резолва оба подсвечивались бы «unable to resolve
+     * column». Настоящих колонок внутри SET в Tarantool не бывает, поэтому
+     * резолв гасится для всего статемента; квалифицированные ссылки
+     * (подзапросов в SET тоже не бывает) не трогаются.
+     */
+    private fun isInsideSetStatement(expression: SqlReferenceExpression): Boolean {
+        if (expression.qualifierExpression != null) {
+            return false
+        }
+        return PsiTreeUtil.getParentOfType(expression, SqlStatement::class.java) is SqlSetStatement
     }
 
     override fun getSystemVariables(): Set<String> = Constants.SESSION_SETTINGS

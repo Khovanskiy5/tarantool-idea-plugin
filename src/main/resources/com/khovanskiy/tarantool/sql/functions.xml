@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Встроенные функции Tarantool SQL (док. Tarantool 3.x, раздел
+  Built-in functions). Файл обязан лежать в пакете класса диалекта:
+  SqlLanguageDialectBase загружает <пакет>/functions.xml рефлексией
+  по классу диалекта, и без него реестр функций пуст - даже COUNT
+  подсвечивался бы как «Unknown database function».
+
+  Синтаксис прототипа: (имя:тип, ...):тип_результата; [] - необязательная
+  часть, {A | B} - альтернативы, ... - повтор; типы: N - число,
+  X - число/интервал, str, B - булев, bytes, datetime, ANY,
+  datatype; P1/P2 - «тип 1-го/2-го аргумента».
+-->
+<functions>
+  <function>
+    <name>ABS</name>
+    <prototype>(x:X):X</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>AVG</name>
+    <prototype>([{DISTINCT | ALL}] X:X):X</prototype>
+  </function>
+  <function>
+    <name>CAST</name>
+    <prototype>(ANY:ANY AS datatype:datatype):P2</prototype>
+  </function>
+  <function>
+    <name>CHAR</name>
+    <prototype>([code:N...]):str</prototype>
+  </function>
+  <function>
+    <name>CHARACTER_LENGTH</name>
+    <prototype>(str:str):N</prototype>
+  </function>
+  <function>
+    <name>CHAR_LENGTH</name>
+    <prototype>(str:str):N</prototype>
+  </function>
+  <function>
+    <name>COALESCE</name>
+    <prototype>(ANY:ANY, ANY:ANY...):P1</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>COUNT</name>
+    <prototype>([{DISTINCT | ALL}] ANY:ANY):N</prototype>
+  </function>
+  <function>
+    <name>DATE_PART</name>
+    <prototype>(part:str, value:datetime):N</prototype>
+  </function>
+  <function>
+    <name>GREATEST</name>
+    <prototype>(ANY:ANY, ANY:ANY...):P1</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>GROUP_CONCAT</name>
+    <prototype>([DISTINCT] expr:str [, sep:str]):str</prototype>
+  </function>
+  <function>
+    <name>HEX</name>
+    <prototype>(value:ANY):str</prototype>
+  </function>
+  <function>
+    <name>IFNULL</name>
+    <prototype>(ANY:ANY, ANY:ANY):P1</prototype>
+  </function>
+  <function>
+    <name>LEAST</name>
+    <prototype>(ANY:ANY, ANY:ANY...):P1</prototype>
+  </function>
+  <function>
+    <name>LENGTH</name>
+    <prototype>(value:ANY):N</prototype>
+  </function>
+  <function>
+    <name>LIKELIHOOD</name>
+    <prototype>(ANY:ANY, probability:N):P1</prototype>
+  </function>
+  <function>
+    <name>LIKELY</name>
+    <prototype>(ANY:ANY):P1</prototype>
+  </function>
+  <function>
+    <name>LOWER</name>
+    <prototype>(str:str):str</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>MAX</name>
+    <prototype>([{DISTINCT | ALL}] ANY:ANY):P1</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>MIN</name>
+    <prototype>([{DISTINCT | ALL}] ANY:ANY):P1</prototype>
+  </function>
+  <function>
+    <name>NOW</name>
+    <prototype>():datetime</prototype>
+  </function>
+  <function>
+    <name>NULLIF</name>
+    <prototype>(ANY:ANY, ANY:ANY):P1</prototype>
+  </function>
+  <function>
+    <name>POSITION</name>
+    <prototype>(substr:str, str:str):N</prototype>
+    <prototype>(substr:str IN str:str):N</prototype>
+  </function>
+  <function>
+    <name>PRINTF</name>
+    <prototype>(format:str [, ANY:ANY...]):str</prototype>
+  </function>
+  <function>
+    <name>QUOTE</name>
+    <prototype>(ANY:ANY):str</prototype>
+  </function>
+  <function>
+    <name>RANDOM</name>
+    <prototype>():N</prototype>
+  </function>
+  <function>
+    <name>RANDOMBLOB</name>
+    <prototype>(n:N):bytes</prototype>
+  </function>
+  <function>
+    <name>REPLACE</name>
+    <prototype>(str:str, from:str, to:str):str</prototype>
+  </function>
+  <function>
+    <name>ROUND</name>
+    <prototype>(x:X [, precision:N]):X</prototype>
+  </function>
+  <function>
+    <name>ROW_COUNT</name>
+    <prototype>():N</prototype>
+  </function>
+  <function>
+    <name>SOUNDEX</name>
+    <prototype>(str:str):str</prototype>
+  </function>
+  <function>
+    <name>SUBSTR</name>
+    <prototype>(str:str, start:N [, length:N]):str</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>SUM</name>
+    <prototype>([{DISTINCT | ALL}] X:X):X</prototype>
+  </function>
+  <function aggregate='true'>
+    <name>TOTAL</name>
+    <prototype>(X:X):N</prototype>
+  </function>
+  <function>
+    <name>TRIM</name>
+    <prototype>(str:str):str</prototype>
+    <prototype>([{BOTH | LEADING | TRAILING}] [remstr:str] FROM str:str):str</prototype>
+  </function>
+  <function>
+    <name>TYPEOF</name>
+    <prototype>(ANY:ANY):str</prototype>
+  </function>
+  <function>
+    <name>UNICODE</name>
+    <prototype>(str:str):N</prototype>
+  </function>
+  <function>
+    <name>UNLIKELY</name>
+    <prototype>(ANY:ANY):P1</prototype>
+  </function>
+  <function>
+    <name>UPPER</name>
+    <prototype>(str:str):str</prototype>
+  </function>
+  <function>
+    <name>UUID</name>
+    <prototype>([version:N]):ANY</prototype>
+  </function>
+  <function>
+    <name>VERSION</name>
+    <prototype>():str</prototype>
+  </function>
+  <function>
+    <name>ZEROBLOB</name>
+    <prototype>(n:N):bytes</prototype>
+  </function>
+</functions>
