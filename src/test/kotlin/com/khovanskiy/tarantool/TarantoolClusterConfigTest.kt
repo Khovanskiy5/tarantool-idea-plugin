@@ -1,6 +1,6 @@
 package com.khovanskiy.tarantool
 
-import com.khovanskiy.tarantool.sql.TarantoolClusterConfig
+import com.khovanskiy.tarantool.cluster.TarantoolClusterConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName

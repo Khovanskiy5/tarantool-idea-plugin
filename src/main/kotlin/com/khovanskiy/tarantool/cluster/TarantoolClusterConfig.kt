@@ -1,4 +1,4 @@
-package com.khovanskiy.tarantool.sql
+package com.khovanskiy.tarantool.cluster
 
 import java.io.File
 

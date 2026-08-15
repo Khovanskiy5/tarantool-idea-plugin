@@ -19,6 +19,7 @@ import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.util.ui.classpath.SimpleClasspathElementFactory
 import com.khovanskiy.tarantool.TarantoolBundle
+import com.khovanskiy.tarantool.cluster.TarantoolClusterConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

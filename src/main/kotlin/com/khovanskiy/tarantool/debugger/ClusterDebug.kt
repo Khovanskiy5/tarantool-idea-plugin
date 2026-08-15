@@ -6,8 +6,8 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.khovanskiy.tarantool.TarantoolBundle
+import com.khovanskiy.tarantool.cluster.TarantoolClusterConfig
 import com.khovanskiy.tarantool.settings.TarantoolRunMode
-import com.khovanskiy.tarantool.sql.TarantoolClusterConfig
 import com.khovanskiy.tarantool.tt.TtExecution
 import java.io.File
 
