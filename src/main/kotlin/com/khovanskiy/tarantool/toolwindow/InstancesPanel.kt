@@ -30,6 +30,7 @@ import com.intellij.ui.table.TableView
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
 import com.khovanskiy.tarantool.TarantoolBundle
+import com.khovanskiy.tarantool.debugger.ClusterDebug
 import com.khovanskiy.tarantool.settings.TarantoolProjectSettings
 import com.khovanskiy.tarantool.settings.TarantoolRunMode
 import com.khovanskiy.tarantool.tt.TtConfigurationType
@@ -87,6 +88,15 @@ class InstancesPanel(private val project: Project) : SimpleToolWindowPanel(false
                     }
                 },
             ) { restart() },
+            action(
+                TarantoolBundle.message("toolwindow.action.debug"),
+                AllIcons.Actions.StartDebugger,
+                updater = { event ->
+                    // Отладчик и маркеры рукопожатия живут на этой машине —
+                    // в Docker и Kubernetes инстанс их не увидит.
+                    event.presentation.isEnabled = mode() == TarantoolRunMode.LOCAL
+                },
+            ) { ClusterDebug.start(project, selectedInstance()) },
             action(
                 TarantoolBundle.message("toolwindow.action.logs"),
                 AllIcons.Actions.ListFiles,

@@ -1,5 +1,7 @@
 package com.khovanskiy.tarantool.tt
 
+import com.intellij.execution.configuration.EnvironmentVariablesComponent
+import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
@@ -24,6 +26,7 @@ class TtSettingsEditor(private val project: Project) : SettingsEditor<TtRunConfi
     )
     private val ttPathField = TextFieldWithBrowseButton()
     private val workingDirField = TextFieldWithBrowseButton()
+    private val environmentComponent = EnvironmentVariablesComponent()
 
     init {
         installChooser(
@@ -71,12 +74,18 @@ class TtSettingsEditor(private val project: Project) : SettingsEditor<TtRunConfi
         commandField.text = configuration.command
         ttPathField.text = configuration.ttPath
         workingDirField.text = configuration.workingDirectory
+        environmentComponent.envData = EnvironmentVariablesData.create(
+            configuration.envs,
+            configuration.passParentEnvs,
+        )
     }
 
     override fun applyEditorTo(configuration: TtRunConfiguration) {
         configuration.command = commandField.text.trim()
         configuration.ttPath = ttPathField.text.trim()
         configuration.workingDirectory = workingDirField.text.trim()
+        configuration.envs = environmentComponent.envData.envs
+        configuration.passParentEnvs = environmentComponent.envData.isPassParentEnvs
     }
 
     override fun createEditor(): JComponent = panel {
@@ -88,6 +97,10 @@ class TtSettingsEditor(private val project: Project) : SettingsEditor<TtRunConfi
         }
         row(TarantoolBundle.message("editor.working.dir")) {
             cell(workingDirField).align(AlignX.FILL)
+        }
+        row {
+            cell(environmentComponent).align(AlignX.FILL)
+                .comment(TarantoolBundle.message("tt.editor.env.comment"))
         }
     }
 

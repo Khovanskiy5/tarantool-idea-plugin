@@ -20,6 +20,13 @@
           открытого .lua-файла из контекстного меню, встроенный отладчик
           tarantool -d, кликабельные ссылки file.lua:line в трейсбеках
           и журналах.</li>
+      <li><b>Графическая отладка одной кнопкой</b> (нужен EmmyLua2):
+          Debug у конфигурации «Tarantool» — для скриптов, «Запустить
+          с отладчиком» на панели инстансов — для кластера. Плагин сам
+          поднимает агент отладчика, ждёт порт и подключает сессию;
+          код приложения править не нужно. Точки останова срабатывают
+          в любом файбере, в обработчиках iproto-запросов и внутри
+          триггеров спейсов, включая стартовый код инстанса.</li>
       <li><b>Инстансы</b>: панель Tarantool — состояние с автообновлением,
           запуск/остановка/перезапуск, живые логи, интерактивная консоль
           во встроенном Терминале; конфигурация «tt (Tarantool CLI)»
@@ -185,6 +192,9 @@
     <configurationType implementation="com.khovanskiy.tarantool.luatest.LuatestConfigurationType" />
     <runConfigurationProducer implementation="com.khovanskiy.tarantool.luatest.LuatestRunConfigurationProducer" order="first" />
     <runConfigurationProducer implementation="com.khovanskiy.tarantool.run.TarantoolRunConfigurationProducer" />
+    <!-- Кнопка Debug у конфигурации «Tarantool»: раннер поднимает процесс
+         с агентом отладчика и сам подключает сессию EmmyLua2. -->
+    <programRunner implementation="com.khovanskiy.tarantool.debugger.TarantoolDebugRunner" />
     <notificationGroup id="Tarantool" displayType="BALLOON" bundle="messages.TarantoolBundle" key="notification.group.tarantool" />
     <liveTemplateContext contextId="TARANTOOL_LUA" implementation="com.khovanskiy.tarantool.templates.TarantoolLuaTemplateContext" />
     <defaultLiveTemplates file="liveTemplates/Tarantool.xml" />

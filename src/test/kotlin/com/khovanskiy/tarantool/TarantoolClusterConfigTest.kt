@@ -2,6 +2,7 @@ package com.khovanskiy.tarantool
 
 import com.khovanskiy.tarantool.sql.TarantoolClusterConfig
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -147,5 +148,57 @@ class TarantoolClusterConfigTest {
             selected.map { it.name to it.port },
             "реплики RO пропущены, роутер и лидеры выбраны",
         )
+    }
+
+    @Test
+    @DisplayName("точка входа: app.file читается, ключи вложенной app.cfg игнорируются")
+    fun parses_app_file_ignoring_user_section() {
+        val lines = """
+            groups:
+              storages:
+                replicasets:
+                  storage-001:
+                    instances:
+                      storage-001-a: {}
+
+            app:
+              file: 'src/app.lua'
+              cfg:
+                debugger:
+                  enabled: true
+                # пользовательская секция может содержать любые ключи,
+                # включая такие же имена
+                module: 'не точка входа'
+        """.trimIndent().lines()
+
+        val app = TarantoolClusterConfig.parseApp(lines)
+        assertEquals("src/app.lua", app?.file)
+        assertNull(app?.module, "module объявлен внутри app.cfg — это не точка входа")
+    }
+
+    @Test
+    @DisplayName("точка входа: app.module без кавычек")
+    fun parses_app_module() {
+        val lines = """
+            app:
+              module: myapp.init
+        """.trimIndent().lines()
+
+        val app = TarantoolClusterConfig.parseApp(lines)
+        assertEquals("myapp.init", app?.module)
+        assertNull(app?.file)
+    }
+
+    @Test
+    @DisplayName("точка входа: без секции app результат пустой")
+    fun returns_null_without_app_section() {
+        val lines = """
+            credentials:
+              users:
+                client:
+                  password: 'secret'
+        """.trimIndent().lines()
+
+        assertNull(TarantoolClusterConfig.parseApp(lines))
     }
 }

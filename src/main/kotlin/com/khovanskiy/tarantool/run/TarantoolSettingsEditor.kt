@@ -25,6 +25,7 @@ class TarantoolSettingsEditor(private val project: Project) : SettingsEditor<Tar
     private val environmentComponent = EnvironmentVariablesComponent()
     private val luaPathCheckBox = JBCheckBox(TarantoolBundle.message("editor.augment.lua.path"))
     private val luaDebuggerCheckBox = JBCheckBox(TarantoolBundle.message("editor.lua.debugger"))
+    private val emmyDebuggerCheckBox = JBCheckBox(TarantoolBundle.message("editor.emmy.debugger"))
 
     init {
         installChooser(
@@ -63,6 +64,7 @@ class TarantoolSettingsEditor(private val project: Project) : SettingsEditor<Tar
         )
         luaPathCheckBox.isSelected = configuration.augmentLuaPath
         luaDebuggerCheckBox.isSelected = configuration.useLuaDebugger
+        emmyDebuggerCheckBox.isSelected = configuration.useEmmyDebugger
     }
 
     override fun applyEditorTo(configuration: TarantoolRunConfiguration) {
@@ -74,6 +76,7 @@ class TarantoolSettingsEditor(private val project: Project) : SettingsEditor<Tar
         configuration.passParentEnvs = environmentComponent.envData.isPassParentEnvs
         configuration.augmentLuaPath = luaPathCheckBox.isSelected
         configuration.useLuaDebugger = luaDebuggerCheckBox.isSelected
+        configuration.useEmmyDebugger = emmyDebuggerCheckBox.isSelected
     }
 
     override fun createEditor(): JComponent = panel {
@@ -97,6 +100,10 @@ class TarantoolSettingsEditor(private val project: Project) : SettingsEditor<Tar
         }
         row {
             cell(luaDebuggerCheckBox)
+        }
+        row {
+            cell(emmyDebuggerCheckBox)
+                .comment(TarantoolBundle.message("editor.emmy.debugger.comment"))
         }
     }
 }

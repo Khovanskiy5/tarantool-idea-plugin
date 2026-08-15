@@ -19,6 +19,8 @@ class TtRunConfigurationOptions : LocatableRunConfigurationOptions() {
     var command by string("start")
     var ttPath by string(TtCli.DEFAULT_NAME)
     var workingDirectory by string("")
+    var passParentEnvs by property(true)
+    var envs by map<String, String>()
 }
 
 /**
@@ -49,6 +51,23 @@ class TtRunConfiguration(project: Project, factory: ConfigurationFactory) :
         get() = options.workingDirectory.orEmpty()
         set(value) {
             options.workingDirectory = value
+        }
+
+    /**
+     * Переменные окружения инстансов: tt передаёт своё окружение
+     * запускаемым процессам, поэтому здесь настраиваются, например,
+     * параметры отладчика или TT_-переопределения конфигурации.
+     */
+    var envs: Map<String, String>
+        get() = options.envs
+        set(value) {
+            options.envs = value.toMutableMap()
+        }
+
+    var passParentEnvs: Boolean
+        get() = options.passParentEnvs
+        set(value) {
+            options.passParentEnvs = value
         }
 
     override fun getConfigurationEditor(): SettingsEditor<out RunConfiguration> =

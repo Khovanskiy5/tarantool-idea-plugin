@@ -45,10 +45,20 @@ class TtCommandLineState(
             }
             .withWorkDirectory(configuration.resolveWorkingDirectory())
             .withCharset(StandardCharsets.UTF_8)
-            .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
+            .withParentEnvironmentType(
+                if (configuration.passParentEnvs) {
+                    GeneralCommandLine.ParentEnvironmentType.CONSOLE
+                } else {
+                    GeneralCommandLine.ParentEnvironmentType.NONE
+                }
+            )
 
         ParametersListUtil.parse(configuration.expandMacros(configuration.command))
             .forEach(commandLine::addParameter)
+
+        // tt передаёт окружение запускаемым инстансам — так конфигурация
+        // «tt start» умеет поднимать кластер с параметрами отладчика.
+        commandLine.environment.putAll(configuration.envs)
 
         val handler = KillableColoredProcessHandler(commandLine)
         ProcessTerminatedListener.attach(handler)

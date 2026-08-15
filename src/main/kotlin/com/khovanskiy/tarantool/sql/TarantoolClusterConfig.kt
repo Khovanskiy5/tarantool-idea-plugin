@@ -28,6 +28,9 @@ object TarantoolClusterConfig {
         val leader: Boolean,
     )
 
+    /** Точка входа приложения: секция app кластерной конфигурации. */
+    data class AppEntry(val file: String?, val module: String?)
+
     /**
      * Ищет config.yaml окружения: сначала в корне, затем в каталогах
      * приложений первого уровня (кластерные шаблоны tt кладут конфиг
@@ -151,6 +154,47 @@ object TarantoolClusterConfig {
     }
 
     /**
+     * Точка входа приложения — `app.file` или `app.module`.
+     *
+     * Нужна отладчику: запуск кластера подменяет app.file своим загрузчиком,
+     * а настоящее приложение тот выполняет сам, уже с подключённой IDE.
+     * Учитываются только прямые потомки `app:` — вложенная секция
+     * `app.cfg` пользовательская и может содержать любые ключи.
+     */
+    fun parseApp(lines: List<String>): AppEntry? {
+        var inApp = false
+        var childIndent = -1
+        var file: String? = null
+        var module: String? = null
+
+        for (raw in lines) {
+            val line = raw.substringBefore('#')
+            if (line.isBlank()) {
+                continue
+            }
+            val indent = line.indexOfFirst { !it.isWhitespace() }
+            if (indent == 0) {
+                inApp = line.trim() == "app:"
+                childIndent = -1
+                continue
+            }
+            if (!inApp) {
+                continue
+            }
+            if (childIndent < 0) {
+                childIndent = indent
+            }
+            if (indent != childIndent) {
+                continue
+            }
+            APP_FILE.find(line)?.let { file = it.groupValues[1] }
+            APP_MODULE.find(line)?.let { module = it.groupValues[1] }
+        }
+
+        return if (file == null && module == null) null else AppEntry(file, module)
+    }
+
+    /**
      * Узлы, для которых имеет смысл источник данных: роутеры (точка входа
      * приложения) и лидеры сторедж-репликасетов (там данные и запись).
      */
@@ -168,6 +212,8 @@ object TarantoolClusterConfig {
     private val USER_NAME_PATTERN = Regex("""^\s{4,8}([\w\-]+):\s*$""")
     private val PASSWORD_PATTERN = Regex("""password:\s*'([^']*)'""")
     private val LEADER_PATTERN = Regex("""leader:\s*'?([\w\-]+)'?""")
+    private val APP_FILE = Regex("""^\s+file:\s*['"]?([^'"\s]+)['"]?\s*$""")
+    private val APP_MODULE = Regex("""^\s+module:\s*['"]?([^'"\s]+)['"]?\s*$""")
     private val INSTANCE_HEADER = Regex("""^\s{6,12}([\w\-]+):\s*(\{\s*}\s*)?$""")
 
     /** Служебные ключи YAML, которые не являются именами инстансов. */
