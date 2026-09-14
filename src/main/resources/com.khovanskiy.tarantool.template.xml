@@ -1,0 +1,21 @@
+<!--
+  Content-модуль Plugin Model v2: язык шаблонов страниц tnt-template
+  (*.thtml.lua) над HTML. Нужен HTML-плагин платформы; классы модуля
+  живут в пакете com.khovanskiy.tarantool.template.
+-->
+<idea-plugin package="com.khovanskiy.tarantool.template">
+  <dependencies>
+    <module name="intellij.xml.parser" />
+    <module name="intellij.xml.psi.impl" />
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <fileType name="Tarantool template" implementationClass="com.khovanskiy.tarantool.template.TntTemplateFileType" fieldName="INSTANCE" language="TntTemplate" patterns="*.thtml.lua" />
+    <fileTypeOverrider implementation="com.khovanskiy.tarantool.template.TntTemplateFileTypeOverrider" />
+    <lang.parserDefinition language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateParserDefinition" />
+    <lang.fileViewProviderFactory language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateFileViewProviderFactory" />
+    <lang.syntaxHighlighterFactory language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateSyntaxHighlighterFactory" />
+    <editorHighlighterProvider filetype="Tarantool template" implementationClass="com.khovanskiy.tarantool.template.TntTemplateEditorHighlighterProvider" />
+    <lang.commenter language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateCommenter" />
+  </extensions>
+</idea-plugin>
