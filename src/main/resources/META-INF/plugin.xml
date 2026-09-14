@@ -70,6 +70,10 @@
           the platform HTML plugin, the insertions {{ }}, {!! !!},
           {{-- --}} and @directives get their own colors, and Comment
           with Block Comment wraps the selection into {{-- --}}.</li>
+      <li>Lua is injected into template expressions ({{ }}, {!! !!} and
+          directive arguments) when the EmmyLua2 plugin is installed, so
+          they get Lua highlighting; typing @ pops up completion of the
+          built-in directives with their parentheses.</li>
     </ul>
     <b>1.5.2</b>
     <ul>

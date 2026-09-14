@@ -69,6 +69,41 @@ class TntTemplateTest : BasePlatformTestCase() {
         assertEquals(listOf("DIRECTIVE:@endif", "LPAREN:(", "RPAREN:)"), tokens("@endif()"))
     }
 
+    fun `test directives are completed after the at sign with their parentheses`() {
+        myFixture.configureByText("about.thtml.lua", "<p>@i<caret></p>")
+
+        val offered = myFixture.completeBasic().map { it.lookupString }
+
+        assertTrue(offered.toString(), offered.containsAll(listOf("if", "include")))
+        assertFalse(offered.toString(), offered.contains("for"))
+
+        myFixture.configureByText("about.thtml.lua", "<p>@inc<caret></p>")
+        myFixture.completeBasic()
+
+        myFixture.checkResult("<p>@include(<caret>)</p>")
+
+        // Без `@` и после `@@` директив не предлагается.
+        myFixture.configureByText("about.thtml.lua", "<p>i<caret></p>")
+        assertTrue(myFixture.completeBasic().orEmpty().none { it.lookupString == "if" })
+        myFixture.configureByText("about.thtml.lua", "<p>@@i<caret></p>")
+        assertTrue(myFixture.completeBasic().orEmpty().none { it.lookupString == "if" })
+    }
+
+    fun `test lua expressions are injection hosts wrapped into parsable lua`() {
+        val file = myFixture.configureByText(
+            "about.thtml.lua",
+            "{{ name }}@if (x)@endif@for (_, v in ipairs(xs))@endfor@include('a', { b = 1 })",
+        )
+        val hosts = com.intellij.psi.util.PsiTreeUtil.collectElementsOfType(file, TntTemplateLuaElement::class.java).toList()
+
+        assertEquals(listOf(" name ", "x", "_, v in ipairs(xs)", "'a', { b = 1 }"), hosts.map { it.text })
+        assertEquals(
+            listOf("return " to "", "if " to " then end", "for " to " do end", "local _ = _(" to ")"),
+            hosts.map { TntTemplateLuaInjector.wrapperOf(it) },
+        )
+        assertTrue(hosts.all { it.isValidHost })
+    }
+
     private fun tokens(text: String): List<String> {
         val lexer = TntTemplateLexer()
         val seen = mutableListOf<String>()

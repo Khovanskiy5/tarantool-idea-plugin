@@ -1,6 +1,9 @@
 package com.khovanskiy.tarantool.template
 
 import com.intellij.extapi.psi.PsiFileBase
+import com.intellij.lang.ASTFactory
+import com.intellij.psi.impl.source.tree.LeafElement
+import com.intellij.psi.tree.IElementType
 import com.intellij.lang.ASTNode
 import com.intellij.lang.ParserDefinition
 import com.intellij.lang.PsiBuilder
@@ -12,7 +15,6 @@ import com.intellij.psi.FileViewProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.source.tree.LeafPsiElement
-import com.intellij.psi.tree.IElementType
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 
@@ -53,4 +55,11 @@ class TntTemplateParserDefinition : ParserDefinition {
     override fun createElement(node: ASTNode): PsiElement = LeafPsiElement(node.elementType, node.text)
 
     override fun createFile(viewProvider: FileViewProvider): PsiFile = TntTemplateFile(viewProvider)
+}
+
+/** Листья дерева: выражение Lua — лист с местом для инъекции, остальное — обычные. */
+class TntTemplateAstFactory : ASTFactory() {
+
+    override fun createLeaf(type: IElementType, text: CharSequence): LeafElement? =
+        if (type === TntTemplateTokens.LUA) TntTemplateLuaElement(type, text) else null
 }

@@ -17,5 +17,9 @@
     <lang.syntaxHighlighterFactory language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateSyntaxHighlighterFactory" />
     <editorHighlighterProvider filetype="Tarantool template" implementationClass="com.khovanskiy.tarantool.template.TntTemplateEditorHighlighterProvider" />
     <lang.commenter language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateCommenter" />
+    <lang.ast.factory language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateAstFactory" />
+    <multiHostInjector implementation="com.khovanskiy.tarantool.template.TntTemplateLuaInjector" />
+    <completion.contributor language="TntTemplate" implementationClass="com.khovanskiy.tarantool.template.TntTemplateCompletionContributor" />
+    <typedHandler implementation="com.khovanskiy.tarantool.template.TntTemplateTypedHandler" />
   </extensions>
 </idea-plugin>
