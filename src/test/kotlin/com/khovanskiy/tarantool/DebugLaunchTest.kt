@@ -3,6 +3,7 @@ package com.khovanskiy.tarantool
 import com.khovanskiy.tarantool.debugger.DebugLaunch
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -40,5 +41,24 @@ class DebugLaunchTest {
     fun detects_free_port() {
         val port = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         assertTrue(DebugLaunch.portAvailable(port))
+    }
+
+    @Test
+    @DisplayName("роли инстанса читаются из последней строки-массива вывода скрипта")
+    fun parses_roles_from_the_script_output() {
+        val output = "started logging into a pipe\n[\"roles.httpd\",\"bootstrap.app\"]\n"
+        assertEquals(listOf("roles.httpd", "bootstrap.app"), DebugLaunch.parseRoles(output))
+    }
+
+    @Test
+    @DisplayName("пустой массив ролей — инстанс без ролей, а не отказ")
+    fun parses_an_empty_role_list() {
+        assertEquals(emptyList<String>(), DebugLaunch.parseRoles("[]\n"))
+    }
+
+    @Test
+    @DisplayName("вывод без массива означает, что роли неизвестны")
+    fun reports_unknown_roles_when_there_is_no_array() {
+        assertNull(DebugLaunch.parseRoles("конфигурация инстанса не собрана\n"))
     }
 }

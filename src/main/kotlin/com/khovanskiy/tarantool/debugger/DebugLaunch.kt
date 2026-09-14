@@ -62,8 +62,23 @@ class DebugLaunch private constructor(
      */
     fun bootstrapChunk(): String = chunkFor(bootstrap.path)
 
-    /** Путь загрузчика для TT_APP_FILE (кластерный запуск). */
+    /** Путь загрузчика для TT_APP_FILE (кластерный запуск без выбранного инстанса). */
     fun bootstrapPath(): String = bootstrap.path
+
+    /** Путь скрипта, который печатает действующие роли инстанса. */
+    fun rolesScriptPath(): String = File(bootstrap.parentFile, ROLES_NAME).path
+
+    /**
+     * Переменные, подключающие загрузчик ролью — первой в списке ролей
+     * инстанса. Список перекрывается целиком: ядро читает TT_ROLES вместо
+     * roles конфигурации, поэтому в нём обязаны быть и настоящие роли.
+     * Каталог загрузчика добавляется в путь поиска модулей: роль ядро
+     * находит через require.
+     */
+    fun roleEnvironment(roles: List<String>): Map<String, String> = mapOf(
+        "TT_ROLES" to (listOf(BOOTSTRAP_ROLE) + roles).joinToString(",", "[", "]") { "\"$it\"" },
+        "LUA_PATH" to "${bootstrap.parentFile.path}/?.lua;;",
+    )
 
     /**
      * Ждёт, пока процесс откроет порт отладчика. Прекращает ожидание,
@@ -113,6 +128,7 @@ class DebugLaunch private constructor(
             extract(HELPER_NAME, File(home, HELPER_NAME))
             val bootstrap = File(home, BOOTSTRAP_NAME)
             extract(BOOTSTRAP_NAME, bootstrap)
+            extract(ROLES_NAME, File(home, ROLES_NAME))
 
             val markers = FileUtil.createTempDirectory(MARKER_PREFIX, null, true)
             return DebugLaunch(
@@ -131,6 +147,18 @@ class DebugLaunch private constructor(
          * даже если в нём кавычки или обратные слэши Windows.
          */
         fun chunkFor(path: String): String = "dofile([==[$path]==])"
+
+        /**
+         * Роли из вывода скрипта emmy_roles.lua: одна строка с JSON-массивом
+         * строк. Разбор нарочно узкий — имена ролей это имена модулей Lua,
+         * кавычек и экранирования в них не бывает. Пустота — скрипт не
+         * ответил массивом, и роли неизвестны.
+         */
+        fun parseRoles(output: String): List<String>? {
+            val line = output.lineSequence().map { it.trim() }.lastOrNull { it.startsWith("[") && it.endsWith("]") }
+                ?: return null
+            return ROLE_ITEM.findAll(line).map { it.groupValues[1] }.toList()
+        }
 
         /**
          * Проверка занятости порта попыткой слушать его самим: подключаться
@@ -160,6 +188,12 @@ class DebugLaunch private constructor(
         private const val SCRIPTS_DIR = "tarantool/debugger"
         private const val HELPER_NAME = "emmy_debug.lua"
         private const val BOOTSTRAP_NAME = "emmy_bootstrap.lua"
+        private const val ROLES_NAME = "emmy_roles.lua"
+
+        /** Имя роли — имя модуля загрузчика, без расширения. */
+        const val BOOTSTRAP_ROLE = "emmy_bootstrap"
+
+        private val ROLE_ITEM = Regex("\"([^\"]+)\"")
         private const val MARKER_PREFIX = "tarantool-debug"
         private const val POLL_MILLIS = 50L
 

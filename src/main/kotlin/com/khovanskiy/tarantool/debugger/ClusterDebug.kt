@@ -2,6 +2,7 @@ package com.khovanskiy.tarantool.debugger
 
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -14,12 +15,19 @@ import java.io.File
 /**
  * Запуск инстанса кластера под отладчиком — одной кнопкой на панели.
  *
- * Что здесь происходит вместо прежнего ручного обряда: плагин подменяет
- * `app.file` собственным загрузчиком через переменную окружения
- * TT_APP_FILE, поэтому код приложения не нужно править вообще — ни строки
- * require('emmy_debug'), ни секции в config.yaml. Загрузчик открывает порт
- * отладчика, дожидается подключения IDE и только после этого выполняет
- * настоящее приложение: точки останова срабатывают уже в стартовом коде.
+ * Код приложения не меняется — ни строки require('emmy_debug'), ни секции
+ * в config.yaml. Загрузчик плагина подключается **ролью**, первой в списке
+ * ролей инстанса (TT_ROLES перекрывает список из конфигурации): ядро
+ * загружает роли до validate и apply остальных, поэтому отладчик уже
+ * подключён и в применении конфигурации, и в app.file, который ядро
+ * запускает после ролей само. Список настоящих ролей инстанса считает сам
+ * Tarantool (emmy_roles.lua) — разбирать config.yaml в IDE ненадёжно.
+ * Приложению без app.file и app.module — роли на tnt-framework — только
+ * этот путь и годится.
+ *
+ * Запасной путь, когда инстанс не выбран и ролей не узнать: подмена
+ * `app.file` загрузчиком через TT_APP_FILE — тогда настоящее приложение
+ * загружает он сам, а роли к его приходу уже применены.
  */
 object ClusterDebug {
 
@@ -46,10 +54,6 @@ object ClusterDebug {
         }
         val lines = runCatching { config.readLines() }.getOrDefault(emptyList())
         val app = TarantoolClusterConfig.parseApp(lines)
-        if (app == null) {
-            DebugAttach.notify(project, TarantoolBundle.message("debug.error.no.app"))
-            return
-        }
 
         // Панель показывает инстансы как «приложение:инстанс» — в таком виде
         // их принимает tt. Приложению же известно только короткое имя
@@ -61,12 +65,6 @@ object ClusterDebug {
         }
 
         val launch = DebugLaunch.prepare()
-        val environment = launch.environment(
-            instance = boxName,
-            // app.file задан относительно каталога конфигурации
-            appFile = app.file?.let { File(config.parentFile, it) },
-            appModule = app.module,
-        ) + mapOf("TT_APP_FILE" to launch.bootstrapPath())
 
         // Без выбранного инстанса команда адресуется всему приложению:
         // короткое имя из конфигурации tt не принимает.
@@ -74,6 +72,26 @@ object ClusterDebug {
 
         object : Task.Backgroundable(project, TarantoolBundle.message("debug.progress.starting", boxName), false) {
             override fun run(indicator: ProgressIndicator) {
+                // Ролью — только для выбранного инстанса: TT_ROLES один на всех,
+                // кого поднимает команда, а роли у роутера и хранилища разные.
+                val roles = if (instance != null) effectiveRoles(project, launch, config, boxName, indicator) else null
+                val attachment = when {
+                    roles != null -> launch.roleEnvironment(roles)
+                    app != null -> mapOf("TT_APP_FILE" to launch.bootstrapPath())
+                    else -> {
+                        launch.cleanup()
+                        DebugAttach.notify(project, TarantoolBundle.message("debug.error.no.app"))
+                        return
+                    }
+                }
+                val environment = launch.environment(
+                    instance = boxName,
+                    // Настоящее приложение загружает сам загрузчик только
+                    // на запасном пути: ролью его запускает ядро, как обычно.
+                    appFile = if (roles == null) app?.file?.let { File(config.parentFile, it) } else null,
+                    appModule = if (roles == null) app?.module else null,
+                ) + attachment
+
                 // Инстанс перезапускается: переменные окружения читаются
                 // только при старте процесса.
                 run(project, environment, indicator, "stop", *ttTarget, "-y")
@@ -98,6 +116,28 @@ object ClusterDebug {
         )
     }
 
+    /**
+     * Действующие роли инстанса — ответ самого Tarantool по config.yaml;
+     * пусто, если скрипт не ответил (нет tt, старое ядро без модуля
+     * конфигурации, негодный YAML) — тогда идёт запасной путь.
+     */
+    private fun effectiveRoles(
+        project: Project,
+        launch: DebugLaunch,
+        config: File,
+        boxName: String,
+        indicator: ProgressIndicator,
+    ): List<String>? {
+        val commandLine = TtExecution.ttCommand(project, "run", launch.rolesScriptPath(), config.path, boxName)
+        val output = runCatching { CapturingProcessHandler(commandLine).runProcessWithProgressIndicator(indicator, TIMEOUT_MS) }
+            .getOrNull() ?: return null
+        if (output.isTimeout || output.exitCode != 0) {
+            LOG.warn("роли инстанса $boxName не получены: ${output.stderr.trim()}")
+            return null
+        }
+        return DebugLaunch.parseRoles(output.stdout)
+    }
+
     /** Единственный инстанс конфигурации — тогда выбирать в панели нечего. */
     private fun singleInstance(lines: List<String>): String? =
         TarantoolClusterConfig.parseNodes(lines).singleOrNull()?.name
@@ -114,4 +154,6 @@ object ClusterDebug {
     }
 
     private const val TIMEOUT_MS = 60_000
+
+    private val LOG = logger<ClusterDebug>()
 }
