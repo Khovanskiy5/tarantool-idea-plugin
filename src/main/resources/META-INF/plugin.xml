@@ -72,6 +72,11 @@
           is computed by Tarantool itself from config.yaml (emmy_roles.lua)
           instead of being parsed in the IDE. Swapping app.file through
           TT_APP_FILE remains the fallback when no instance is selected.</li>
+      <li>tt commands started by the plugin (start, restart, debug) now read
+          the project's .env: cluster configs take secrets from the
+          environment via config.context, and an instance started without
+          them died with "no TARANTOOL_CLIENT_PASSWORD environment variable".
+          Real environment variables still win over the file.</li>
     </ul>
     <b>1.5.1</b>
     <ul>

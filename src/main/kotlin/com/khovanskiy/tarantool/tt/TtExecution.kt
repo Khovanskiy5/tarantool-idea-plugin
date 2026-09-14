@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.util.execution.ParametersListUtil
 import com.khovanskiy.tarantool.settings.TarantoolProjectSettings
 import com.khovanskiy.tarantool.settings.TarantoolRunMode
+import java.io.File
 import java.nio.charset.StandardCharsets
 
 /**
@@ -31,7 +32,14 @@ object TtExecution {
         return ParametersListUtil.parse(settings.dockerExecPrefix)
     }
 
-    /** Команда tt для текущего режима (LOCAL/DOCKER). */
+    /**
+     * Команда tt для текущего режима (LOCAL/DOCKER).
+     *
+     * Локальной команде отдаются переменные из `.env` проекта: кластерная
+     * конфигурация берёт из них тайны, и без них инстанс не поднимется.
+     * Внутрь контейнера окружение IDE не доходит — там `.env` читает
+     * сам контейнер.
+     */
     fun ttCommand(project: Project, vararg args: String): GeneralCommandLine {
         val prefix = dockerPrefixOrEmpty(project)
         val commandLine = if (prefix.isNotEmpty()) {
@@ -40,7 +48,9 @@ object TtExecution {
                 .withParameters("tt")
                 .withParameters(*args)
         } else {
-            GeneralCommandLine(TtCli.resolve(null)).withParameters(*args)
+            GeneralCommandLine(TtCli.resolve(null))
+                .withParameters(*args)
+                .withEnvironment(project.basePath?.let { DotEnv.load(File(it)) } ?: emptyMap())
         }
         return commandLine
             .withWorkDirectory(project.basePath)
